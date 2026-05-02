@@ -1,0 +1,19 @@
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.opensdf
+*.sdf
+*.opendb
+*.aps
+*.tlog
+*.lastbuildstate
+
+# 项目编译输出
+build/
+
+# 调试残留
+*.pdb
+*.idb
+*.exp
