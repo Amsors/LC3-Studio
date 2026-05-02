@@ -17,6 +17,14 @@ std::string selfTestSource() {
            ".end\n";
 }
 
+std::string trapEchoSelfTestSource() {
+    return ".orig x3000\n"
+           "        getc\n"
+           "        out\n"
+           "        halt\n"
+           ".end\n";
+}
+
 int runSelfTest() {
     lc3::AssemblerService assembler;
     lc3::AssembleResult assembled = assembler.assembleSource(selfTestSource());
@@ -44,6 +52,42 @@ int runSelfTest() {
               << " PC=" << lc3::formatHexWord(registers.pc)
               << " R0=" << lc3::formatHexWord(registers.r[0])
               << " CC=" << registers.cc << "\n";
+
+    lc3::AssembleResult trap_assembled = assembler.assembleSource(trapEchoSelfTestSource());
+    if (!trap_assembled.ok) {
+        std::cerr << "TRAP assembly failed: " << trap_assembled.error_message << "\n";
+        return 1;
+    }
+
+    lc3::SimulatorService trap_simulator;
+    trap_simulator.setTrapInputBuffer("A");
+    lc3::OperationResult trap_loaded = trap_simulator.loadMachineCode(trap_assembled.machine_code);
+    if (!trap_loaded.ok) {
+        std::cerr << "TRAP load failed: " << trap_loaded.message << "\n";
+        return 1;
+    }
+
+    lc3::OperationResult running = trap_simulator.setRunning(true);
+    if (!running.ok) {
+        std::cerr << "TRAP run failed: " << running.message << "\n";
+        return 1;
+    }
+
+    for (int i = 0; i < 16 && trap_simulator.isRunning(); i++) {
+        lc3::RunStepResult step = trap_simulator.stepForRun();
+        if (!step.ok) {
+            std::cerr << "TRAP run step failed: " << step.message << "\n";
+            return 1;
+        }
+    }
+
+    if (!trap_simulator.isHalted() || trap_simulator.trapOutputBuffer() != "A") {
+        std::cerr << "TRAP self test failed: output=\"" << trap_simulator.trapOutputBuffer()
+                  << "\" halted=" << (trap_simulator.isHalted() ? "true" : "false") << "\n";
+        return 1;
+    }
+
+    std::cout << "TRAP self test OK: output=\"" << trap_simulator.trapOutputBuffer() << "\"\n";
     return 0;
 }
 
@@ -56,7 +100,7 @@ int main(int argc, char** argv) {
 
     Fl::scheme("gtk+");
 
-    MainWindow window(1100, 720);
+    MainWindow window(1180, 760);
     window.show(argc, argv);
     return Fl::run();
 }

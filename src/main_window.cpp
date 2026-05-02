@@ -1,6 +1,7 @@
 #include "main_window.h"
 
 #include <FL/Enumerations.H>
+#include <FL/Fl.H>
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Input.H>
@@ -31,6 +32,8 @@ constexpr int kLabelHeight = 22;
 constexpr int kButtonHeight = 30;
 constexpr int kMemoryRowsBeforePc = 8;
 constexpr int kMemoryRowsAfterPc = 32;
+constexpr int kRunStepsPerTick = 100;
+constexpr double kRunTickSeconds = 0.02;
 
 std::filesystem::path utf8Path(const char* text) {
     return text ? std::filesystem::u8path(text) : std::filesystem::path();
@@ -268,12 +271,15 @@ MainWindow::MainWindow(int width, int height)
     setStatus("Ready");
     callback(onClose, this);
     resizable(editor_);
-    size_range(900, 560);
+    size_range(1000, 650);
 }
 
 MainWindow::~MainWindow() {
+    stopRunTimer();
     delete editor_buffer_;
     delete machine_buffer_;
+    delete trap_input_buffer_;
+    delete trap_output_buffer_;
     delete log_buffer_;
 }
 
@@ -290,6 +296,8 @@ void MainWindow::buildUi() {
     menu_->add("&File/E&xit", 0, onExit, this);
     menu_->add("&Build/&Assemble\tF7", FL_F + 7, onAssemble, this);
     menu_->add("&Build/Assemble && &Load\tCtrl+F7", FL_CTRL + (FL_F + 7), onAssembleAndLoad, this);
+    menu_->add("&Run/&Run\tF5", FL_F + 5, onRun, this);
+    menu_->add("&Run/&Pause\tShift+F5", FL_SHIFT + (FL_F + 5), onPause, this);
     menu_->add("&Run/&Step\tF10", FL_F + 10, onStep, this);
     menu_->add("&Run/&Reset", 0, onReset, this);
     menu_->add("&Build/Core Self Test", 0, onCoreSelfTest, this);
@@ -302,34 +310,48 @@ void MainWindow::buildUi() {
     assemble_button_->callback(onAssemble, this);
     load_button_ = new Fl_Button(kMargin + 316, kMenuHeight + 9, 96, kButtonHeight, "Load");
     load_button_->callback(onAssembleAndLoad, this);
-    step_button_ = new Fl_Button(kMargin + 420, kMenuHeight + 9, 80, kButtonHeight, "Step");
+    run_button_ = new Fl_Button(kMargin + 420, kMenuHeight + 9, 80, kButtonHeight, "Run");
+    run_button_->callback(onRun, this);
+    pause_button_ = new Fl_Button(kMargin + 508, kMenuHeight + 9, 80, kButtonHeight, "Pause");
+    pause_button_->callback(onPause, this);
+    step_button_ = new Fl_Button(kMargin + 596, kMenuHeight + 9, 80, kButtonHeight, "Step");
     step_button_->callback(onStep, this);
-    reset_button_ = new Fl_Button(kMargin + 508, kMenuHeight + 9, 80, kButtonHeight, "Reset");
+    reset_button_ = new Fl_Button(kMargin + 684, kMenuHeight + 9, 80, kButtonHeight, "Reset");
     reset_button_->callback(onReset, this);
-    memory_jump_input_ = new Fl_Input(kMargin + 604, kMenuHeight + 9, 104, kButtonHeight, "");
+    memory_jump_input_ = new Fl_Input(kMargin + 780, kMenuHeight + 9, 104, kButtonHeight, "");
     memory_jump_input_->value("x3000");
-    jump_button_ = new Fl_Button(kMargin + 716, kMenuHeight + 9, 80, kButtonHeight, "Jump");
+    jump_button_ = new Fl_Button(kMargin + 892, kMenuHeight + 9, 80, kButtonHeight, "Jump");
     jump_button_->callback(onJumpMemory, this);
 
     source_label_ = new Fl_Box(0, 0, 1, 1, "ASM Source");
     machine_label_ = new Fl_Box(0, 0, 1, 1, "Machine Code");
     register_label_ = new Fl_Box(0, 0, 1, 1, "Registers");
     memory_label_ = new Fl_Box(0, 0, 1, 1, "Memory");
+    trap_input_label_ = new Fl_Box(0, 0, 1, 1, "TRAP Input Buffer");
+    trap_output_label_ = new Fl_Box(0, 0, 1, 1, "TRAP Output");
+    trap_remaining_label_ = new Fl_Box(0, 0, 1, 1, "Remaining: 0");
     log_label_ = new Fl_Box(0, 0, 1, 1, "Log");
 
     source_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     machine_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     register_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     memory_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+    trap_input_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+    trap_output_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+    trap_remaining_label_->align(FL_ALIGN_RIGHT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
     log_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     source_label_->labelfont(FL_BOLD);
     machine_label_->labelfont(FL_BOLD);
     register_label_->labelfont(FL_BOLD);
     memory_label_->labelfont(FL_BOLD);
+    trap_input_label_->labelfont(FL_BOLD);
+    trap_output_label_->labelfont(FL_BOLD);
     log_label_->labelfont(FL_BOLD);
 
     editor_buffer_ = new Fl_Text_Buffer();
     machine_buffer_ = new Fl_Text_Buffer();
+    trap_input_buffer_ = new Fl_Text_Buffer();
+    trap_output_buffer_ = new Fl_Text_Buffer();
     log_buffer_ = new Fl_Text_Buffer();
 
     editor_ = new Fl_Text_Editor(0, 0, 1, 1);
@@ -348,6 +370,20 @@ void MainWindow::buildUi() {
 
     register_table_ = new RegisterTable(0, 0, 1, 1);
     memory_table_ = new MemoryTable(0, 0, 1, 1);
+
+    trap_input_editor_ = new Fl_Text_Editor(0, 0, 1, 1);
+    trap_input_editor_->buffer(trap_input_buffer_);
+    trap_input_editor_->textfont(FL_COURIER);
+    trap_input_editor_->textsize(13);
+    trap_input_buffer_->add_modify_callback(onTrapInputModified, this);
+
+    trap_output_display_ = new Fl_Text_Display(0, 0, 1, 1);
+    trap_output_display_->buffer(trap_output_buffer_);
+    trap_output_display_->textfont(FL_COURIER);
+    trap_output_display_->textsize(13);
+
+    clear_trap_output_button_ = new Fl_Button(0, 0, 1, 1, "Clear");
+    clear_trap_output_button_->callback(onClearTrapOutput, this);
 
     log_display_ = new Fl_Text_Display(0, 0, 1, 1);
     log_display_->buffer(log_buffer_);
@@ -376,6 +412,10 @@ void MainWindow::layoutChildren(int width, int height) {
     button_x += 100 + kGap;
     load_button_->resize(button_x, button_y, 78, kButtonHeight);
     button_x += 78 + kGap;
+    run_button_->resize(button_x, button_y, 64, kButtonHeight);
+    button_x += 64 + kGap;
+    pause_button_->resize(button_x, button_y, 72, kButtonHeight);
+    button_x += 72 + kGap;
     step_button_->resize(button_x, button_y, 72, kButtonHeight);
     button_x += 72 + kGap;
     reset_button_->resize(button_x, button_y, 72, kButtonHeight);
@@ -389,11 +429,21 @@ void MainWindow::layoutChildren(int width, int height) {
     int content_y = kMenuHeight + kToolbarHeight + kMargin;
     int content_w = std::max(1, width - 2 * kMargin);
     int content_h = std::max(1, height - content_y - kStatusHeight - kMargin);
-    int top_h = std::max(250, content_h * 58 / 100);
-    top_h = std::min(top_h, std::max(1, content_h - kGap - 160));
-    if (top_h < 180) top_h = std::max(1, content_h * 60 / 100);
-    int bottom_y = content_y + top_h + kGap;
-    int bottom_h = std::max(1, content_y + content_h - bottom_y);
+    int bottom_h = std::max(104, content_h * 22 / 100);
+    bottom_h = std::min(bottom_h, std::max(80, content_h / 3));
+    int top_h = std::max(220, content_h * 54 / 100);
+    int memory_h = content_h - top_h - bottom_h - 2 * kGap;
+    if (memory_h < 120) {
+        int deficit = 120 - memory_h;
+        top_h = std::max(180, top_h - deficit);
+        memory_h = content_h - top_h - bottom_h - 2 * kGap;
+    }
+    if (memory_h < 80) {
+        bottom_h = std::max(80, bottom_h - (80 - memory_h));
+        memory_h = std::max(1, content_h - top_h - bottom_h - 2 * kGap);
+    }
+    int memory_y = content_y + top_h + kGap;
+    int bottom_y = memory_y + memory_h + kGap;
 
     int left_w = std::max(320, content_w * 48 / 100);
     int right_total_w = content_w - left_w - kGap;
@@ -425,22 +475,39 @@ void MainWindow::layoutChildren(int width, int height) {
                             std::max(1, top_h - kLabelHeight));
     register_table_->fitColumns(register_w);
 
-    int memory_w = std::max(1, content_w * 70 / 100);
-    int log_w = std::max(1, content_w - memory_w - kGap);
-    if (log_w < 220 && content_w > 500) {
-        log_w = 220;
-        memory_w = std::max(1, content_w - log_w - kGap);
-    }
-    int log_x = content_x + memory_w + kGap;
+    memory_label_->resize(content_x, memory_y, content_w, kLabelHeight);
+    memory_table_->resize(content_x, memory_y + kLabelHeight, content_w,
+                          std::max(1, memory_h - kLabelHeight));
+    memory_table_->fitColumns(content_w);
 
-    memory_label_->resize(content_x, bottom_y, memory_w, kLabelHeight);
-    memory_table_->resize(content_x, bottom_y + kLabelHeight, memory_w,
-                          std::max(1, bottom_h - kLabelHeight));
-    memory_table_->fitColumns(memory_w);
+    int available_bottom_w = std::max(1, content_w - 2 * kGap);
+    int trap_input_w = std::max(220, available_bottom_w * 32 / 100);
+    int trap_output_w = std::max(220, available_bottom_w * 32 / 100);
+    int log_w = available_bottom_w - trap_input_w - trap_output_w;
+    if (log_w < 220) {
+        trap_input_w = available_bottom_w / 3;
+        trap_output_w = available_bottom_w / 3;
+        log_w = std::max(1, available_bottom_w - trap_input_w - trap_output_w);
+    }
+
+    int trap_input_x = content_x;
+    int trap_output_x = trap_input_x + trap_input_w + kGap;
+    int log_x = trap_output_x + trap_output_w + kGap;
+    int bottom_body_y = bottom_y + kLabelHeight;
+    int bottom_body_h = std::max(1, bottom_h - kLabelHeight);
+
+    trap_input_label_->resize(trap_input_x, bottom_y, std::max(1, trap_input_w - 108), kLabelHeight);
+    trap_remaining_label_->resize(trap_input_x + std::max(1, trap_input_w - 108), bottom_y,
+                                  std::min(108, trap_input_w), kLabelHeight);
+    trap_input_editor_->resize(trap_input_x, bottom_body_y, trap_input_w, bottom_body_h);
+
+    trap_output_label_->resize(trap_output_x, bottom_y, std::max(1, trap_output_w - 72), kLabelHeight);
+    clear_trap_output_button_->resize(trap_output_x + std::max(0, trap_output_w - 64),
+                                      bottom_y + 2, std::min(64, trap_output_w), kLabelHeight - 4);
+    trap_output_display_->resize(trap_output_x, bottom_body_y, trap_output_w, bottom_body_h);
 
     log_label_->resize(log_x, bottom_y, log_w, kLabelHeight);
-    log_display_->resize(log_x, bottom_y + kLabelHeight, log_w,
-                         std::max(1, bottom_h - kLabelHeight));
+    log_display_->resize(log_x, bottom_body_y, log_w, bottom_body_h);
 
     status_bar_->resize(0, height - kStatusHeight, width, kStatusHeight);
 }
@@ -469,6 +536,14 @@ void MainWindow::onAssembleAndLoad(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->assembleAndLoad();
 }
 
+void MainWindow::onRun(Fl_Widget*, void* data) {
+    static_cast<MainWindow*>(data)->runProgram();
+}
+
+void MainWindow::onPause(Fl_Widget*, void* data) {
+    static_cast<MainWindow*>(data)->pauseProgram();
+}
+
 void MainWindow::onStep(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->stepOnce();
 }
@@ -479,6 +554,10 @@ void MainWindow::onReset(Fl_Widget*, void* data) {
 
 void MainWindow::onJumpMemory(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->jumpMemory();
+}
+
+void MainWindow::onClearTrapOutput(Fl_Widget*, void* data) {
+    static_cast<MainWindow*>(data)->clearTrapOutput();
 }
 
 void MainWindow::onCoreSelfTest(Fl_Widget*, void* data) {
@@ -493,11 +572,23 @@ void MainWindow::onTextModified(int, int inserted, int deleted, int, const char*
     }
 }
 
+void MainWindow::onTrapInputModified(int, int inserted, int deleted, int, const char*, void* data) {
+    auto* self = static_cast<MainWindow*>(data);
+    if (inserted != 0 || deleted != 0) {
+        self->updateTrapInputBuffer();
+    }
+}
+
 void MainWindow::onClose(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->requestClose();
 }
 
+void MainWindow::onRunTimer(void* data) {
+    static_cast<MainWindow*>(data)->runTimerTick();
+}
+
 void MainWindow::openFile() {
+    stopRunTimer();
     if (dirty_) {
         int choice = fl_choice("The current source has unsaved changes.", "Cancel", "Discard", "Save");
         if (choice == 0) return;
@@ -579,6 +670,7 @@ bool MainWindow::saveFileAs() {
 }
 
 void MainWindow::assembleSource() {
+    stopRunTimer();
     std::string source = editorText();
     lc3::AssembleResult result = assembler_.assembleSource(source);
     if (!result.ok) {
@@ -596,6 +688,7 @@ void MainWindow::assembleSource() {
 }
 
 void MainWindow::assembleAndLoad() {
+    stopRunTimer();
     std::string source = editorText();
     lc3::AssembleResult assembled = assembler_.assembleSource(source);
     if (!assembled.ok) {
@@ -632,7 +725,105 @@ void MainWindow::assembleAndLoad() {
     setStatus("Program loaded");
 }
 
+void MainWindow::runProgram() {
+    if (!program_loaded_) {
+        setStatus("Load program before running");
+        appendLog("Run ignored: no program loaded");
+        return;
+    }
+
+    if (simulator_.isHalted()) {
+        setStatus("Reset program before running");
+        appendLog("Run ignored: machine is halted");
+        return;
+    }
+
+    lc3::OperationResult result = simulator_.setRunning(true);
+    if (!result.ok) {
+        setStatus("Run failed");
+        appendLog("Run failed: " + result.message);
+        refreshSimulatorViews();
+        return;
+    }
+
+    run_timer_active_ = true;
+    Fl::remove_timeout(onRunTimer, this);
+    Fl::add_timeout(0.0, onRunTimer, this);
+    refreshSimulatorViews();
+    appendLog("Run started");
+    setStatus("Running");
+}
+
+void MainWindow::pauseProgram() {
+    if (!run_timer_active_ && !simulator_.isRunning()) {
+        setStatus("Already paused");
+        return;
+    }
+
+    stopRunTimer();
+    refreshSimulatorViews();
+    appendLog("Run paused");
+    setStatus("Paused");
+}
+
+void MainWindow::stopRunTimer() {
+    if (run_timer_active_) {
+        Fl::remove_timeout(onRunTimer, this);
+    }
+    run_timer_active_ = false;
+    if (simulator_.isRunning()) {
+        (void)simulator_.setRunning(false);
+    }
+}
+
+void MainWindow::runTimerTick() {
+    if (!run_timer_active_) {
+        return;
+    }
+
+    if (!program_loaded_ || !simulator_.isRunning()) {
+        run_timer_active_ = false;
+        refreshSimulatorViews();
+        return;
+    }
+
+    std::string stop_message;
+    bool should_continue = true;
+    for (int i = 0; i < kRunStepsPerTick; i++) {
+        lc3::RunStepResult result = simulator_.stepForRun();
+        if (!result.ok) {
+            stop_message = "Run failed: " + result.message;
+            should_continue = false;
+            break;
+        }
+        if (result.stopped) {
+            stop_message = result.message;
+            should_continue = false;
+            break;
+        }
+    }
+
+    lc3::RegisterView registers = simulator_.registers();
+    memory_center_ = registers.pc;
+    refreshSimulatorViews();
+
+    if (!should_continue) {
+        run_timer_active_ = false;
+        appendLog(stop_message);
+        setStatus(stop_message);
+        return;
+    }
+
+    if (simulator_.isRunning()) {
+        Fl::repeat_timeout(kRunTickSeconds, onRunTimer, this);
+    } else {
+        run_timer_active_ = false;
+        setStatus("Paused");
+    }
+}
+
 void MainWindow::stepOnce() {
+    stopRunTimer();
     if (!program_loaded_) {
         setStatus("Load program before stepping");
         appendLog("Step ignored: no program loaded");
@@ -659,6 +850,7 @@ void MainWindow::stepOnce() {
 }
 
 void MainWindow::resetProgram() {
+    stopRunTimer();
     lc3::OperationResult result = simulator_.resetProgram();
     if (!result.ok) {
         appendLog("Reset failed: " + result.message);
@@ -685,6 +877,13 @@ void MainWindow::jumpMemory() {
     memory_center_ = address & 0xFFFF;
     refreshMemoryView();
     setStatus("Memory centered at " + lc3::formatHexWord(memory_center_));
+}
+
+void MainWindow::clearTrapOutput() {
+    simulator_.clearTrapOutputBuffer();
+    refreshTrapViews();
+    appendLog("TRAP output cleared");
+    setStatus("TRAP output cleared");
 }
 
 void MainWindow::runCoreSelfTest() {
@@ -718,6 +917,7 @@ void MainWindow::runCoreSelfTest() {
 }
 
 void MainWindow::requestClose() {
+    stopRunTimer();
     if (dirty_) {
         int choice = fl_choice("The current source has unsaved changes.", "Cancel", "Discard", "Save");
         if (choice == 0) return;
@@ -739,6 +939,13 @@ std::string MainWindow::editorText() const {
     return result;
 }
 
+std::string MainWindow::trapInputText() const {
+    char* text = trap_input_buffer_->text();
+    std::string result = text ? text : "";
+    std::free(text);
+    return result;
+}
+
 void MainWindow::setMachineOutput(const std::string& text) {
     machine_buffer_->text(text.c_str());
 }
@@ -754,10 +961,17 @@ void MainWindow::setStatus(const std::string& message) {
     status_bar_->copy_label(("  " + message).c_str());
 }
 
+void MainWindow::updateTrapInputBuffer() {
+    simulator_.setTrapInputBuffer(trapInputText());
+    refreshTrapViews();
+}
+
 void MainWindow::refreshSimulatorViews() {
     lc3::RegisterView registers = simulator_.registers();
     refreshRegisterView(registers);
     refreshMemoryView();
+    refreshTrapViews();
+    updateControlStates(registers);
 }
 
 void MainWindow::refreshRegisterView(const lc3::RegisterView& registers) {
@@ -766,6 +980,32 @@ void MainWindow::refreshRegisterView(const lc3::RegisterView& registers) {
 
 void MainWindow::refreshMemoryView() {
     memory_table_->setRows(simulator_.memoryWindow(memory_center_, kMemoryRowsBeforePc, kMemoryRowsAfterPc));
+}
+
+void MainWindow::refreshTrapViews() {
+    std::string output = simulator_.trapOutputBuffer();
+    trap_output_buffer_->text(output.c_str());
+    trap_output_display_->insert_position(trap_output_buffer_->length());
+    trap_output_display_->show_insert_position();
+
+    std::string remaining = simulator_.trapInputRemainder();
+    std::string label = "Remaining: " + std::to_string(remaining.size());
+    trap_remaining_label_->copy_label(label.c_str());
+}
+
+void MainWindow::updateControlStates(const lc3::RegisterView& registers) {
+    bool can_execute = program_loaded_ && !registers.running && !registers.halted;
+    bool can_run = program_loaded_ && !registers.running && !registers.halted;
+
+    if (run_button_) {
+        can_run ? run_button_->activate() : run_button_->deactivate();
+    }
+    if (pause_button_) {
+        registers.running ? pause_button_->activate() : pause_button_->deactivate();
+    }
+    if (step_button_) {
+        can_execute ? step_button_->activate() : step_button_->deactivate();
+    }
 }
 
 void MainWindow::updateTitle() {
