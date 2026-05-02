@@ -82,6 +82,7 @@ private:
     void setMachineOutput(const std::string& text);
     void appendLog(const std::string& message);
     void setStatus(const std::string& message);
+    void invalidateLoadedProgram(const std::string& message);
     void updateTrapInputBuffer();
     void refreshSimulatorViews();
     void refreshRegisterView(const lc3::RegisterView& registers);

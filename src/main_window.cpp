@@ -643,6 +643,7 @@ void MainWindow::onTextModified(int, int inserted, int deleted, int, const char*
     if (!self->programmatic_edit_ && (inserted != 0 || deleted != 0)) {
         self->dirty_ = true;
         self->updateTitle();
+        self->invalidateLoadedProgram("Source changed; assemble and load before running");
     }
 }
 
@@ -1111,6 +1112,29 @@ void MainWindow::appendLog(const std::string& message) {
 
 void MainWindow::setStatus(const std::string& message) {
     status_bar_->copy_label(("  " + message).c_str());
+}
+
+void MainWindow::invalidateLoadedProgram(const std::string& message) {
+    lc3::RegisterView registers = simulator_.registers();
+    bool had_loaded_program = program_loaded_ || registers.running || registers.loaded_words > 0;
+    bool had_machine_output = !latest_machine_code_.empty() ||
+                              (machine_buffer_ && machine_buffer_->length() > 0);
+
+    if (!had_loaded_program && !had_machine_output) {
+        updateControlStates(registers);
+        return;
+    }
+
+    stopRunTimer();
+    program_loaded_ = false;
+    latest_machine_code_.clear();
+    machine_buffer_->text("");
+    simulator_.clearMachine();
+    memory_center_ = 0x3000;
+    memory_jump_input_->value("x3000");
+    refreshSimulatorViews();
+    appendLog(message);
+    setStatus(message);
 }
 
 void MainWindow::updateTrapInputBuffer() {
