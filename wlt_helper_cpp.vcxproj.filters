@@ -9,10 +9,24 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
+    <Filter Include="LC3">
+      <UniqueIdentifier>{E8E2E7CB-0F5F-4DA2-B845-41B3CF0A1DC5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="LC3\lc3_assembler_adapter.cpp">
+      <Filter>LC3</Filter>
+    </ClCompile>
+    <ClCompile Include="LC3\lc3_simulator_adapter.cpp">
+      <Filter>LC3</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="LC3\lc3_gui_adapter.h">
+      <Filter>LC3</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
