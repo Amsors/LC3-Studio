@@ -17,6 +17,9 @@
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\main_window.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="LC3\lc3_assembler_adapter.cpp">
       <Filter>LC3</Filter>
     </ClCompile>
@@ -25,6 +28,9 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\main_window.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="LC3\lc3_gui_adapter.h">
       <Filter>LC3</Filter>
     </ClInclude>
