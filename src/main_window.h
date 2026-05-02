@@ -10,11 +10,14 @@
 
 class Fl_Box;
 class Fl_Button;
+class Fl_Input;
 class Fl_Menu_Bar;
 class Fl_Text_Buffer;
 class Fl_Text_Display;
 class Fl_Text_Editor;
 class Fl_Widget;
+class MemoryTable;
+class RegisterTable;
 
 class MainWindow : public Fl_Double_Window {
 public:
@@ -29,6 +32,10 @@ private:
     static void onSaveAs(Fl_Widget* widget, void* data);
     static void onExit(Fl_Widget* widget, void* data);
     static void onAssemble(Fl_Widget* widget, void* data);
+    static void onAssembleAndLoad(Fl_Widget* widget, void* data);
+    static void onStep(Fl_Widget* widget, void* data);
+    static void onReset(Fl_Widget* widget, void* data);
+    static void onJumpMemory(Fl_Widget* widget, void* data);
     static void onCoreSelfTest(Fl_Widget* widget, void* data);
     static void onTextModified(int pos, int inserted, int deleted, int restyled,
                                const char* deleted_text, void* data);
@@ -41,6 +48,10 @@ private:
     bool saveFile();
     bool saveFileAs();
     void assembleSource();
+    void assembleAndLoad();
+    void stepOnce();
+    void resetProgram();
+    void jumpMemory();
     void runCoreSelfTest();
     void requestClose();
 
@@ -49,6 +60,9 @@ private:
     void setMachineOutput(const std::string& text);
     void appendLog(const std::string& message);
     void setStatus(const std::string& message);
+    void refreshSimulatorViews();
+    void refreshRegisterView(const lc3::RegisterView& registers);
+    void refreshMemoryView();
     void updateTitle();
 
     static std::string defaultSource();
@@ -57,16 +71,26 @@ private:
     static int parseBinaryWord(const std::string& word);
 
     lc3::AssemblerService assembler_;
+    lc3::SimulatorService simulator_;
 
     Fl_Menu_Bar* menu_ = nullptr;
     Fl_Button* open_button_ = nullptr;
     Fl_Button* save_button_ = nullptr;
     Fl_Button* assemble_button_ = nullptr;
+    Fl_Button* load_button_ = nullptr;
+    Fl_Button* step_button_ = nullptr;
+    Fl_Button* reset_button_ = nullptr;
+    Fl_Button* jump_button_ = nullptr;
+    Fl_Input* memory_jump_input_ = nullptr;
     Fl_Box* source_label_ = nullptr;
     Fl_Box* machine_label_ = nullptr;
+    Fl_Box* register_label_ = nullptr;
+    Fl_Box* memory_label_ = nullptr;
     Fl_Box* log_label_ = nullptr;
     Fl_Text_Editor* editor_ = nullptr;
     Fl_Text_Display* machine_display_ = nullptr;
+    RegisterTable* register_table_ = nullptr;
+    MemoryTable* memory_table_ = nullptr;
     Fl_Text_Display* log_display_ = nullptr;
     Fl_Box* status_bar_ = nullptr;
 
@@ -75,6 +99,9 @@ private:
     Fl_Text_Buffer* log_buffer_ = nullptr;
 
     std::filesystem::path current_file_;
+    std::string latest_machine_code_;
+    int memory_center_ = 0x3000;
+    bool program_loaded_ = false;
     bool dirty_ = false;
     bool programmatic_edit_ = false;
 };
