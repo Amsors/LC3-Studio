@@ -12,6 +12,9 @@
     <Filter Include="LC3">
       <UniqueIdentifier>{E8E2E7CB-0F5F-4DA2-B845-41B3CF0A1DC5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Examples">
+      <UniqueIdentifier>{23A29A10-D6AB-49EC-8E26-44D94878305C}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -34,5 +37,13 @@
     <ClInclude Include="LC3\lc3_gui_adapter.h">
       <Filter>LC3</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="LC3\config.json">
+      <Filter>LC3</Filter>
+    </None>
+    <None Include="examples\lc3_gui_demo.asm">
+      <Filter>Examples</Filter>
+    </None>
   </ItemGroup>
 </Project>

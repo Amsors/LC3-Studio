@@ -38,8 +38,13 @@ private:
     static void onStep(Fl_Widget* widget, void* data);
     static void onReset(Fl_Widget* widget, void* data);
     static void onJumpMemory(Fl_Widget* widget, void* data);
+    static void onAddBreakpoint(Fl_Widget* widget, void* data);
+    static void onRemoveBreakpoint(Fl_Widget* widget, void* data);
+    static void onClearBreakpoints(Fl_Widget* widget, void* data);
     static void onClearTrapOutput(Fl_Widget* widget, void* data);
     static void onCoreSelfTest(Fl_Widget* widget, void* data);
+    static void onOpenDemo(Fl_Widget* widget, void* data);
+    static void onMemoryTableEvent(Fl_Widget* widget, void* data);
     static void onTextModified(int pos, int inserted, int deleted, int restyled,
                                const char* deleted_text, void* data);
     static void onTrapInputModified(int pos, int inserted, int deleted, int restyled,
@@ -62,8 +67,13 @@ private:
     void stepOnce();
     void resetProgram();
     void jumpMemory();
+    void addBreakpoint();
+    void removeBreakpoint();
+    void clearBreakpoints();
+    void toggleBreakpointAtAddress(int address);
     void clearTrapOutput();
     void runCoreSelfTest();
+    void openDemoProgram();
     void requestClose();
 
     void setEditorText(const std::string& text);
@@ -98,8 +108,14 @@ private:
     Fl_Button* step_button_ = nullptr;
     Fl_Button* reset_button_ = nullptr;
     Fl_Button* jump_button_ = nullptr;
+    Fl_Button* add_breakpoint_button_ = nullptr;
+    Fl_Button* remove_breakpoint_button_ = nullptr;
+    Fl_Button* clear_breakpoints_button_ = nullptr;
     Fl_Button* clear_trap_output_button_ = nullptr;
     Fl_Input* memory_jump_input_ = nullptr;
+    Fl_Input* breakpoint_input_ = nullptr;
+    Fl_Box* jump_label_ = nullptr;
+    Fl_Box* breakpoint_label_ = nullptr;
     Fl_Box* source_label_ = nullptr;
     Fl_Box* machine_label_ = nullptr;
     Fl_Box* register_label_ = nullptr;

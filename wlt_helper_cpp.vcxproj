@@ -123,6 +123,11 @@
     <ClInclude Include="LC3\lc3_gui_adapter.h" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="LC3\config.json" />
+    <None Include="examples\lc3_gui_demo.asm" />
+  </ItemGroup>
+
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>

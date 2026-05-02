@@ -50,6 +50,54 @@ bool Configuration::InputFromConsole = false;
 bool Configuration::OutputToConsole = false;
 bool Configuration::CheckImmediateRange = true;
 
+const char* EmbeddedConfigJson() {
+    return R"lc3config({
+  "r0": "000",
+  "r1": "001",
+  "r2": "010",
+  "r3": "011",
+  "r4": "100",
+  "r5": "101",
+  "r6": "110",
+  "r7": "111",
+  "add": "0001",
+  "and": "0101",
+  "br": "0000",
+  "brn": "0000",
+  "brz": "0000",
+  "brp": "0000",
+  "brnz": "0000",
+  "brnp": "0000",
+  "brzp": "0000",
+  "brnzp": "0000",
+  "jmp": "1100",
+  "jsr": "0100",
+  "jsrr": "0100",
+  "ld": "0010",
+  "ldi": "1010",
+  "ldr": "0110",
+  "lea": "1110",
+  "not": "1001",
+  "ret": "1100",
+  "rti": "1000",
+  "st": "0011",
+  "sti": "1011",
+  "str": "0111",
+  "trap": "1111",
+  ".orig": "",
+  ".fill": "",
+  ".stringz": "",
+  ".blkw": "",
+  ".end": "",
+  "getc": "1111000000100000",
+  "out": "1111000000100001",
+  "puts": "1111000000100010",
+  "in": "1111000000100011",
+  "putsp": "1111000000100100",
+  "halt": "1111000000100101"
+})lc3config";
+}
+
 class Tokenizer {
 public:
     static std::vector<std::string> SplitLines(const std::string& text) {
@@ -170,12 +218,36 @@ class Parser {
 
     static constexpr int DEFAULT_ORIGIN = 0x3000;
 
+    void LoadConfigFromStream(std::istream& input, const std::string& source_name) {
+        json j;
+        try {
+            input >> j;
+        } catch (const std::exception& e) {
+            throw AssemblyError(std::string("Invalid JSON in ") + source_name + ": " + e.what());
+        }
+        LoadConfigObject(j, source_name);
+    }
+
+    void LoadConfigObject(const json& j, const std::string& source_name) {
+        valid_token.clear();
+        for (const auto& [k, v] : j.items()) {
+            if (!v.is_string()) {
+                throw AssemblyError("Config value for '" + k + "' in " + source_name + " is not a string");
+            }
+            valid_token.emplace(k, v.get<std::string>());
+        }
+    }
+
 public:
     Parser() {
         try {
             LoadConfig("LC3/config.json");
         } catch (const AssemblyError&) {
-            LoadConfig("config.json");
+            try {
+                LoadConfig("config.json");
+            } catch (const AssemblyError&) {
+                LoadConfigFromText(EmbeddedConfigJson(), "embedded config");
+            }
         }
     }
 
@@ -184,25 +256,16 @@ public:
     }
 
     void LoadConfig(const std::string& path) {
-        valid_token.clear();
         std::ifstream in(path);
         if (!in) {
             throw AssemblyError("Cannot open config file: " + path);
         }
+        LoadConfigFromStream(in, path);
+    }
 
-        json j;
-        try {
-            in >> j;
-        } catch (const std::exception& e) {
-            throw AssemblyError(std::string("Invalid JSON in ") + path + ": " + e.what());
-        }
-
-        for (auto& [k, v] : j.items()) {
-            if (!v.is_string()) {
-                throw AssemblyError("Config value for '" + k + "' is not a string");
-            }
-            valid_token.emplace(k, v.get<std::string>());
-        }
+    void LoadConfigFromText(const std::string& text, const std::string& source_name) {
+        std::istringstream input(text);
+        LoadConfigFromStream(input, source_name);
     }
 
     static bool isReg(const std::string& s) {

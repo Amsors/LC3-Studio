@@ -42,7 +42,7 @@ std::string findConfigPath() {
             return candidate.lexically_normal().string();
         }
     }
-    return "LC3/config.json";
+    return {};
 }
 
 } // namespace
@@ -50,7 +50,8 @@ std::string findConfigPath() {
 AssembleResult AssemblerService::assembleSource(const std::string& source) const {
     AssembleResult result;
     try {
-        Parser parser(findConfigPath());
+        std::string config_path = findConfigPath();
+        Parser parser = config_path.empty() ? Parser() : Parser(config_path);
         result.words = parser.AssembleSourceToWords(source);
 
         std::ostringstream out;

@@ -24,12 +24,13 @@
 namespace {
 
 constexpr int kMenuHeight = 28;
-constexpr int kToolbarHeight = 48;
+constexpr int kToolbarHeight = 86;
 constexpr int kStatusHeight = 26;
 constexpr int kMargin = 10;
 constexpr int kGap = 8;
 constexpr int kLabelHeight = 22;
 constexpr int kButtonHeight = 30;
+constexpr int kToolbarRowGap = 6;
 constexpr int kMemoryRowsBeforePc = 8;
 constexpr int kMemoryRowsAfterPc = 32;
 constexpr int kRunStepsPerTick = 100;
@@ -191,6 +192,14 @@ public:
         col_width(3, binary_width);
     }
 
+    bool addressAtRow(int row, int& address) const {
+        if (row < 0 || row >= static_cast<int>(rows_.size())) {
+            return false;
+        }
+        address = rows_[static_cast<std::size_t>(row)].address;
+        return true;
+    }
+
 private:
     void draw_cell(TableContext context, int row, int col, int x, int y, int width, int height) override {
         switch (context) {
@@ -291,6 +300,7 @@ void MainWindow::resize(int x, int y, int width, int height) {
 void MainWindow::buildUi() {
     menu_ = new Fl_Menu_Bar(0, 0, w(), kMenuHeight);
     menu_->add("&File/&Open...\tCtrl+O", FL_CTRL + 'o', onOpen, this);
+    menu_->add("&File/Open &Demo Program", 0, onOpenDemo, this);
     menu_->add("&File/&Save\tCtrl+S", FL_CTRL + 's', onSave, this);
     menu_->add("&File/Save &As...", 0, onSaveAs, this);
     menu_->add("&File/E&xit", 0, onExit, this);
@@ -300,6 +310,7 @@ void MainWindow::buildUi() {
     menu_->add("&Run/&Pause\tShift+F5", FL_SHIFT + (FL_F + 5), onPause, this);
     menu_->add("&Run/&Step\tF10", FL_F + 10, onStep, this);
     menu_->add("&Run/&Reset", 0, onReset, this);
+    menu_->add("&Run/Clear &Breakpoints", 0, onClearBreakpoints, this);
     menu_->add("&Build/Core Self Test", 0, onCoreSelfTest, this);
 
     open_button_ = new Fl_Button(kMargin, kMenuHeight + 9, 88, kButtonHeight, "Open");
@@ -322,7 +333,17 @@ void MainWindow::buildUi() {
     memory_jump_input_->value("x3000");
     jump_button_ = new Fl_Button(kMargin + 892, kMenuHeight + 9, 80, kButtonHeight, "Jump");
     jump_button_->callback(onJumpMemory, this);
+    breakpoint_input_ = new Fl_Input(0, 0, 1, kButtonHeight, "");
+    breakpoint_input_->value("x3003");
+    add_breakpoint_button_ = new Fl_Button(0, 0, 1, kButtonHeight, "Add BP");
+    add_breakpoint_button_->callback(onAddBreakpoint, this);
+    remove_breakpoint_button_ = new Fl_Button(0, 0, 1, kButtonHeight, "Remove BP");
+    remove_breakpoint_button_->callback(onRemoveBreakpoint, this);
+    clear_breakpoints_button_ = new Fl_Button(0, 0, 1, kButtonHeight, "Clear BP");
+    clear_breakpoints_button_->callback(onClearBreakpoints, this);
 
+    jump_label_ = new Fl_Box(0, 0, 1, 1, "Memory");
+    breakpoint_label_ = new Fl_Box(0, 0, 1, 1, "Breakpoint");
     source_label_ = new Fl_Box(0, 0, 1, 1, "ASM Source");
     machine_label_ = new Fl_Box(0, 0, 1, 1, "Machine Code");
     register_label_ = new Fl_Box(0, 0, 1, 1, "Registers");
@@ -332,6 +353,8 @@ void MainWindow::buildUi() {
     trap_remaining_label_ = new Fl_Box(0, 0, 1, 1, "Remaining: 0");
     log_label_ = new Fl_Box(0, 0, 1, 1, "Log");
 
+    jump_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+    breakpoint_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     source_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     machine_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     register_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
@@ -340,6 +363,8 @@ void MainWindow::buildUi() {
     trap_output_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     trap_remaining_label_->align(FL_ALIGN_RIGHT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
     log_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+    jump_label_->labelfont(FL_BOLD);
+    breakpoint_label_->labelfont(FL_BOLD);
     source_label_->labelfont(FL_BOLD);
     machine_label_->labelfont(FL_BOLD);
     register_label_->labelfont(FL_BOLD);
@@ -370,6 +395,9 @@ void MainWindow::buildUi() {
 
     register_table_ = new RegisterTable(0, 0, 1, 1);
     memory_table_ = new MemoryTable(0, 0, 1, 1);
+    memory_table_->callback(onMemoryTableEvent, this);
+    memory_table_->when(FL_WHEN_RELEASE);
+    memory_table_->type(Fl_Table_Row::SELECT_SINGLE);
 
     trap_input_editor_ = new Fl_Text_Editor(0, 0, 1, 1);
     trap_input_editor_->buffer(trap_input_buffer_);
@@ -402,28 +430,44 @@ void MainWindow::buildUi() {
 void MainWindow::layoutChildren(int width, int height) {
     menu_->resize(0, 0, width, kMenuHeight);
 
-    int button_y = kMenuHeight + 9;
+    int row1_y = kMenuHeight + 8;
+    int row2_y = row1_y + kButtonHeight + kToolbarRowGap;
     int button_x = kMargin;
-    open_button_->resize(button_x, button_y, 72, kButtonHeight);
+    open_button_->resize(button_x, row1_y, 72, kButtonHeight);
     button_x += 72 + kGap;
-    save_button_->resize(button_x, button_y, 72, kButtonHeight);
+    save_button_->resize(button_x, row1_y, 72, kButtonHeight);
     button_x += 72 + kGap;
-    assemble_button_->resize(button_x, button_y, 100, kButtonHeight);
+    assemble_button_->resize(button_x, row1_y, 100, kButtonHeight);
     button_x += 100 + kGap;
-    load_button_->resize(button_x, button_y, 78, kButtonHeight);
+    load_button_->resize(button_x, row1_y, 78, kButtonHeight);
     button_x += 78 + kGap;
-    run_button_->resize(button_x, button_y, 64, kButtonHeight);
+    run_button_->resize(button_x, row1_y, 64, kButtonHeight);
     button_x += 64 + kGap;
-    pause_button_->resize(button_x, button_y, 72, kButtonHeight);
+    pause_button_->resize(button_x, row1_y, 72, kButtonHeight);
     button_x += 72 + kGap;
-    step_button_->resize(button_x, button_y, 72, kButtonHeight);
+    step_button_->resize(button_x, row1_y, 72, kButtonHeight);
     button_x += 72 + kGap;
-    reset_button_->resize(button_x, button_y, 72, kButtonHeight);
-    button_x += 72 + 2 * kGap;
-    int jump_input_w = std::min(110, std::max(76, width - button_x - 84 - kMargin));
-    memory_jump_input_->resize(button_x, button_y, jump_input_w, kButtonHeight);
+    reset_button_->resize(button_x, row1_y, 72, kButtonHeight);
+
+    button_x = kMargin;
+    jump_label_->resize(button_x, row2_y, 62, kButtonHeight);
+    button_x += 62 + kGap;
+    int jump_input_w = std::min(116, std::max(86, width / 10));
+    memory_jump_input_->resize(button_x, row2_y, jump_input_w, kButtonHeight);
     button_x += jump_input_w + kGap;
-    jump_button_->resize(button_x, button_y, 76, kButtonHeight);
+    jump_button_->resize(button_x, row2_y, 76, kButtonHeight);
+    button_x += 76 + 2 * kGap;
+
+    breakpoint_label_->resize(button_x, row2_y, 86, kButtonHeight);
+    button_x += 86 + kGap;
+    int breakpoint_input_w = std::min(116, std::max(86, width / 10));
+    breakpoint_input_->resize(button_x, row2_y, breakpoint_input_w, kButtonHeight);
+    button_x += breakpoint_input_w + kGap;
+    add_breakpoint_button_->resize(button_x, row2_y, 76, kButtonHeight);
+    button_x += 76 + kGap;
+    remove_breakpoint_button_->resize(button_x, row2_y, 98, kButtonHeight);
+    button_x += 98 + kGap;
+    clear_breakpoints_button_->resize(button_x, row2_y, 84, kButtonHeight);
 
     int content_x = kMargin;
     int content_y = kMenuHeight + kToolbarHeight + kMargin;
@@ -556,12 +600,42 @@ void MainWindow::onJumpMemory(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->jumpMemory();
 }
 
+void MainWindow::onAddBreakpoint(Fl_Widget*, void* data) {
+    static_cast<MainWindow*>(data)->addBreakpoint();
+}
+
+void MainWindow::onRemoveBreakpoint(Fl_Widget*, void* data) {
+    static_cast<MainWindow*>(data)->removeBreakpoint();
+}
+
+void MainWindow::onClearBreakpoints(Fl_Widget*, void* data) {
+    static_cast<MainWindow*>(data)->clearBreakpoints();
+}
+
 void MainWindow::onClearTrapOutput(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->clearTrapOutput();
 }
 
 void MainWindow::onCoreSelfTest(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->runCoreSelfTest();
+}
+
+void MainWindow::onOpenDemo(Fl_Widget*, void* data) {
+    static_cast<MainWindow*>(data)->openDemoProgram();
+}
+
+void MainWindow::onMemoryTableEvent(Fl_Widget* widget, void* data) {
+    auto* self = static_cast<MainWindow*>(data);
+    auto* table = static_cast<MemoryTable*>(widget);
+    if (table->callback_context() != Fl_Table::CONTEXT_CELL || Fl::event_clicks() == 0) {
+        return;
+    }
+
+    int address = 0;
+    if (table->addressAtRow(table->callback_row(), address)) {
+        self->toggleBreakpointAtAddress(address);
+        Fl::event_clicks(0);
+    }
 }
 
 void MainWindow::onTextModified(int, int inserted, int deleted, int, const char*, void* data) {
@@ -618,6 +692,8 @@ void MainWindow::openFile() {
         program_loaded_ = false;
         memory_center_ = 0x3000;
         simulator_.clearMachine();
+        simulator_.clearBreakpoints();
+        breakpoint_input_->value("x3003");
         refreshSimulatorViews();
         appendLog("Opened " + fileDisplayName(path));
         setStatus("Opened " + fileDisplayName(path));
@@ -879,6 +955,57 @@ void MainWindow::jumpMemory() {
     setStatus("Memory centered at " + lc3::formatHexWord(memory_center_));
 }
 
+void MainWindow::addBreakpoint() {
+    int address = 0;
+    if (!lc3::parseAddress(breakpoint_input_->value(), address)) {
+        setStatus("Invalid breakpoint address");
+        appendLog(std::string("Invalid breakpoint address: ") + breakpoint_input_->value());
+        return;
+    }
+
+    address &= 0xFFFF;
+    simulator_.setBreakpoint(address, true);
+    breakpoint_input_->value(lc3::formatHexWord(address).c_str());
+    refreshMemoryView();
+    appendLog("Breakpoint set at " + lc3::formatHexWord(address));
+    setStatus("Breakpoint set at " + lc3::formatHexWord(address));
+}
+
+void MainWindow::removeBreakpoint() {
+    int address = 0;
+    if (!lc3::parseAddress(breakpoint_input_->value(), address)) {
+        setStatus("Invalid breakpoint address");
+        appendLog(std::string("Invalid breakpoint address: ") + breakpoint_input_->value());
+        return;
+    }
+
+    address &= 0xFFFF;
+    simulator_.setBreakpoint(address, false);
+    breakpoint_input_->value(lc3::formatHexWord(address).c_str());
+    refreshMemoryView();
+    appendLog("Breakpoint removed at " + lc3::formatHexWord(address));
+    setStatus("Breakpoint removed at " + lc3::formatHexWord(address));
+}
+
+void MainWindow::clearBreakpoints() {
+    simulator_.clearBreakpoints();
+    refreshMemoryView();
+    appendLog("All breakpoints cleared");
+    setStatus("All breakpoints cleared");
+}
+
+void MainWindow::toggleBreakpointAtAddress(int address) {
+    address &= 0xFFFF;
+    bool enabled = !simulator_.hasBreakpoint(address);
+    simulator_.setBreakpoint(address, enabled);
+    breakpoint_input_->value(lc3::formatHexWord(address).c_str());
+    refreshMemoryView();
+    appendLog(std::string(enabled ? "Breakpoint set at " : "Breakpoint removed at ") +
+              lc3::formatHexWord(address));
+    setStatus(std::string(enabled ? "Breakpoint set at " : "Breakpoint removed at ") +
+              lc3::formatHexWord(address));
+}
+
 void MainWindow::clearTrapOutput() {
     simulator_.clearTrapOutputBuffer();
     refreshTrapViews();
@@ -914,6 +1041,31 @@ void MainWindow::runCoreSelfTest() {
               " R0=" + lc3::formatHexWord(registers.r[0]) +
               " CC=" + registers.cc);
     setStatus("Core self test OK");
+}
+
+void MainWindow::openDemoProgram() {
+    stopRunTimer();
+    if (dirty_) {
+        int choice = fl_choice("The current source has unsaved changes.", "Cancel", "Discard", "Save");
+        if (choice == 0) return;
+        if (choice == 2 && !saveFile()) return;
+    }
+
+    setEditorText(defaultSource());
+    current_file_.clear();
+    dirty_ = false;
+    machine_buffer_->text("");
+    latest_machine_code_.clear();
+    program_loaded_ = false;
+    memory_center_ = 0x3000;
+    memory_jump_input_->value("x3000");
+    breakpoint_input_->value("x3003");
+    simulator_.clearMachine();
+    simulator_.clearBreakpoints();
+    refreshSimulatorViews();
+    appendLog("Loaded demo program");
+    setStatus("Demo program loaded; x3003 is ready for breakpoint demo");
+    updateTitle();
 }
 
 void MainWindow::requestClose() {
