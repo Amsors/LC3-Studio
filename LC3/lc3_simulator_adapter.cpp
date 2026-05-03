@@ -23,6 +23,15 @@ std::string trim(std::string text) {
     return text;
 }
 
+std::string lowercaseAscii(std::string text) {
+    for (char& c : text) {
+        if (c >= 'A' && c <= 'Z') {
+            c = static_cast<char>(c - 'A' + 'a');
+        }
+    }
+    return text;
+}
+
 } // namespace
 
 struct SimulatorService::Impl {
@@ -185,6 +194,75 @@ std::vector<MemoryRow> SimulatorService::memoryWindow(int center_address, int be
     return rows;
 }
 
+OperationResult SimulatorService::setMemoryValue(int address, int value) {
+    try {
+        impl_->machine.WriteSingleMem(address & 0xFFFF, value & 0xFFFF);
+        return { true, "Memory updated" };
+    } catch (const std::exception& e) {
+        impl_->machine.SetRunning(false);
+        return { false, e.what() };
+    }
+}
+
+OperationResult SimulatorService::setRegisterValue(int index, int value) {
+    try {
+        impl_->machine.SetRegisterValue(index, value & 0xFFFF);
+        return { true, "Register updated" };
+    } catch (const std::exception& e) {
+        impl_->machine.SetRunning(false);
+        return { false, e.what() };
+    }
+}
+
+OperationResult SimulatorService::setPC(int value) {
+    try {
+        impl_->machine.SetPC(value & 0xFFFF);
+        return { true, "PC updated" };
+    } catch (const std::exception& e) {
+        impl_->machine.SetRunning(false);
+        return { false, e.what() };
+    }
+}
+
+OperationResult SimulatorService::setIR(int value) {
+    try {
+        impl_->machine.SetIR(value & 0xFFFF);
+        return { true, "IR updated" };
+    } catch (const std::exception& e) {
+        impl_->machine.SetRunning(false);
+        return { false, e.what() };
+    }
+}
+
+OperationResult SimulatorService::setConditionCode(const std::string& cc) {
+    std::string s = lowercaseAscii(trim(cc));
+    try {
+        if (s == "n" || s == "neg" || s == "negative") {
+            impl_->machine.SetConditionCode(StateMachine::NEG);
+        } else if (s == "z" || s == "zero") {
+            impl_->machine.SetConditionCode(StateMachine::ZERO);
+        } else if (s == "p" || s == "pos" || s == "positive") {
+            impl_->machine.SetConditionCode(StateMachine::POS);
+        } else {
+            return { false, "Condition code must be n, z, or p" };
+        }
+        return { true, "Condition code updated" };
+    } catch (const std::exception& e) {
+        impl_->machine.SetRunning(false);
+        return { false, e.what() };
+    }
+}
+
+OperationResult SimulatorService::setHalted(bool value) {
+    try {
+        impl_->machine.SetHalted(value);
+        return { true, "HALTED updated" };
+    } catch (const std::exception& e) {
+        impl_->machine.SetRunning(false);
+        return { false, e.what() };
+    }
+}
+
 void SimulatorService::setTrapInputBuffer(const std::string& text) {
     impl_->trap_input = text;
     impl_->trap_input_pos = 0;
@@ -206,20 +284,31 @@ void SimulatorService::clearTrapOutputBuffer() {
 }
 
 bool parseAddress(const std::string& text, int& address) {
-    std::string s = trim(text);
+    std::string s;
+    for (char c : trim(text)) {
+        if (c != '_' && !std::isspace(static_cast<unsigned char>(c))) {
+            s.push_back(c);
+        }
+    }
     if (s.empty()) return false;
 
-    int base = 16;
+    int base = 10;
     std::size_t pos = 0;
     bool negative = false;
-    if (s[pos] == '-') {
-        negative = true;
+    if (s[pos] == '-' || s[pos] == '+') {
+        negative = s[pos] == '-';
         pos++;
     }
     if (pos >= s.size()) return false;
 
     if (s[pos] == '#') {
         base = 10;
+        pos++;
+    } else if (s[pos] == 'd' || s[pos] == 'D') {
+        base = 10;
+        pos++;
+    } else if (s[pos] == 'b' || s[pos] == 'B') {
+        base = 2;
         pos++;
     } else if (s[pos] == 'x' || s[pos] == 'X') {
         base = 16;

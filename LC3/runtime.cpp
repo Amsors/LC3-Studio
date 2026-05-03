@@ -378,6 +378,11 @@ public:
         SetCC(R[num]);
     }
 
+    void SetRegisterValue(int num, int data) {
+        CheckRegister(num);
+        Utilities::WriteMem(R[num], data);
+    }
+
     MemCell ReadPC() const { return PC; }
     MemCell ReadIR() const { return IR; }
     int ReadPCValue() const { return Utilities::ReadMem(PC); }
@@ -392,6 +397,21 @@ public:
         CheckAddress(v & 0xFFFF, "SetPC");
         Utilities::WriteMem(PC, v);
         halted = false;
+    }
+
+    void SetIR(int v) {
+        Utilities::WriteMem(IR, v);
+    }
+
+    void SetConditionCode(CC_type cc) {
+        CC = cc;
+    }
+
+    void SetHalted(bool v) {
+        halted = v;
+        if (halted) {
+            running = false;
+        }
     }
 
     void SetRunning(bool v) {

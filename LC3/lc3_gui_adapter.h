@@ -77,6 +77,13 @@ public:
     RegisterView registers() const;
     std::vector<MemoryRow> memoryWindow(int center_address, int before, int after) const;
 
+    OperationResult setMemoryValue(int address, int value);
+    OperationResult setRegisterValue(int index, int value);
+    OperationResult setPC(int value);
+    OperationResult setIR(int value);
+    OperationResult setConditionCode(const std::string& cc);
+    OperationResult setHalted(bool value);
+
     void setTrapInputBuffer(const std::string& text);
     std::string trapInputRemainder() const;
     std::string trapOutputBuffer() const;

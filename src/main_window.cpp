@@ -60,6 +60,53 @@ struct AsmToken {
     std::string lower_text;
 };
 
+struct CellBounds {
+    int row = -1;
+    int col = -1;
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+};
+
+void rememberCellBounds(std::vector<CellBounds>& cells,
+                        int row,
+                        int col,
+                        int x,
+                        int y,
+                        int width,
+                        int height) {
+    for (CellBounds& cell : cells) {
+        if (cell.row == row && cell.col == col) {
+            cell.x = x;
+            cell.y = y;
+            cell.width = width;
+            cell.height = height;
+            return;
+        }
+    }
+    cells.push_back({ row, col, x, y, width, height });
+}
+
+bool lookupCellBounds(const std::vector<CellBounds>& cells,
+                      int row,
+                      int col,
+                      int& x,
+                      int& y,
+                      int& width,
+                      int& height) {
+    for (const CellBounds& cell : cells) {
+        if (cell.row == row && cell.col == col && cell.width > 0 && cell.height > 0) {
+            x = cell.x;
+            y = cell.y;
+            width = cell.width;
+            height = cell.height;
+            return true;
+        }
+    }
+    return false;
+}
+
 std::filesystem::path utf8Path(const char* text) {
     return text ? std::filesystem::u8path(text) : std::filesystem::path();
 }
@@ -175,6 +222,23 @@ bool isLabelToken(const std::string& token) {
         }
     }
     return !isRegisterToken(token) && !isInstructionToken(token);
+}
+
+bool parseBoolText(const std::string& text, bool& value) {
+    std::string lower = lowercaseAscii(text);
+    lower.erase(std::remove_if(lower.begin(), lower.end(), [](unsigned char c) {
+        return std::isspace(c) != 0;
+    }), lower.end());
+
+    if (lower == "1" || lower == "true" || lower == "yes" || lower == "y") {
+        value = true;
+        return true;
+    }
+    if (lower == "0" || lower == "false" || lower == "no" || lower == "n") {
+        value = false;
+        return true;
+    }
+    return false;
 }
 
 void applyStyle(std::string& styles, std::size_t start, std::size_t end, char style) {
@@ -307,21 +371,43 @@ public:
     }
 
     void fitColumns(int width) {
+        visible_cell_bounds_.clear();
         int name_width = std::min(96, std::max(72, width * 42 / 100));
         col_width(0, name_width);
         col_width(1, std::max(70, width - name_width - 18));
+    }
+
+    bool editableRow(int row) const {
+        return (row >= 0 && row <= 10) || row == 12;
+    }
+
+    bool cellBounds(int row, int col, int& x, int& y, int& width, int& height) {
+        if (find_cell(CONTEXT_CELL, row, col, x, y, width, height) != 0) {
+            return true;
+        }
+        return lookupCellBounds(visible_cell_bounds_, row, col, x, y, width, height);
+    }
+
+    std::string nameAtRow(int row) const {
+        return registerName(row);
+    }
+
+    std::string valueAtRow(int row) const {
+        return registerValue(row);
     }
 
 private:
     void draw_cell(TableContext context, int row, int col, int x, int y, int width, int height) override {
         switch (context) {
             case CONTEXT_STARTPAGE:
+                visible_cell_bounds_.clear();
                 fl_font(FL_HELVETICA, 13);
                 return;
             case CONTEXT_COL_HEADER:
                 drawHeaderCell(col == 0 ? "Name" : "Value", x, y, width, height);
                 return;
             case CONTEXT_CELL:
+                rememberCellBounds(visible_cell_bounds_, row, col, x, y, width, height);
                 drawValueCell(row, col, x, y, width, height);
                 return;
             default:
@@ -379,6 +465,7 @@ private:
     }
 
     lc3::RegisterView registers_;
+    std::vector<CellBounds> visible_cell_bounds_;
 };
 
 class MemoryTable : public Fl_Table_Row {
@@ -399,10 +486,12 @@ public:
     void setRows(const std::vector<lc3::MemoryRow>& memory_rows) {
         rows_ = memory_rows;
         Fl_Table_Row::rows(static_cast<int>(rows_.size()));
+        visible_cell_bounds_.clear();
         redraw();
     }
 
     void fitColumns(int width) {
+        visible_cell_bounds_.clear();
         int flag_width = 62;
         int address_width = 86;
         int hex_width = 78;
@@ -421,16 +510,33 @@ public:
         return true;
     }
 
+    bool valueAtRow(int row, int& value) const {
+        if (row < 0 || row >= static_cast<int>(rows_.size())) {
+            return false;
+        }
+        value = rows_[static_cast<std::size_t>(row)].value;
+        return true;
+    }
+
+    bool cellBounds(int row, int col, int& x, int& y, int& width, int& height) {
+        if (find_cell(CONTEXT_CELL, row, col, x, y, width, height) != 0) {
+            return true;
+        }
+        return lookupCellBounds(visible_cell_bounds_, row, col, x, y, width, height);
+    }
+
 private:
     void draw_cell(TableContext context, int row, int col, int x, int y, int width, int height) override {
         switch (context) {
             case CONTEXT_STARTPAGE:
+                visible_cell_bounds_.clear();
                 fl_font(FL_HELVETICA, 13);
                 return;
             case CONTEXT_COL_HEADER:
                 drawHeaderCell(columnName(col), x, y, width, height);
                 return;
             case CONTEXT_CELL:
+                rememberCellBounds(visible_cell_bounds_, row, col, x, y, width, height);
                 drawValueCell(row, col, x, y, width, height);
                 return;
             default:
@@ -489,6 +595,7 @@ private:
     }
 
     std::vector<lc3::MemoryRow> rows_;
+    std::vector<CellBounds> visible_cell_bounds_;
 };
 
 MainWindow::MainWindow(int width, int height)
@@ -551,6 +658,12 @@ void MainWindow::buildUi() {
     step_button_->callback(onStep, this);
     reset_button_ = new Fl_Button(kMargin + 684, kMenuHeight + 9, 80, kButtonHeight, "Reset");
     reset_button_->callback(onReset, this);
+    state_modified_label_ = new Fl_Box(0, 0, 1, kButtonHeight, "");
+    state_modified_label_->box(FL_FLAT_BOX);
+    state_modified_label_->color(fl_rgb_color(255, 248, 220));
+    state_modified_label_->labelcolor(fl_rgb_color(139, 75, 0));
+    state_modified_label_->labelfont(FL_HELVETICA_BOLD);
+    state_modified_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
     memory_jump_input_ = new Fl_Input(kMargin + 780, kMenuHeight + 9, 104, kButtonHeight, "");
     memory_jump_input_->value("x3000");
     jump_button_ = new Fl_Button(kMargin + 892, kMenuHeight + 9, 80, kButtonHeight, "Jump");
@@ -623,10 +736,21 @@ void MainWindow::buildUi() {
     machine_display_->textsize(14);
 
     register_table_ = new RegisterTable(0, 0, 1, 1);
+    register_table_->callback(onRegisterTableEvent, this);
+    register_table_->when(FL_WHEN_RELEASE_ALWAYS);
+    register_table_->type(Fl_Table_Row::SELECT_SINGLE);
     memory_table_ = new MemoryTable(0, 0, 1, 1);
     memory_table_->callback(onMemoryTableEvent, this);
-    memory_table_->when(FL_WHEN_RELEASE);
+    memory_table_->when(FL_WHEN_RELEASE_ALWAYS);
     memory_table_->type(Fl_Table_Row::SELECT_SINGLE);
+
+    cell_editor_ = new Fl_Input(0, 0, 1, 1, "");
+    cell_editor_->box(FL_THIN_DOWN_BOX);
+    cell_editor_->textfont(FL_COURIER);
+    cell_editor_->textsize(13);
+    cell_editor_->when(FL_WHEN_ENTER_KEY_ALWAYS);
+    cell_editor_->callback(onCellEditConfirmed, this);
+    cell_editor_->hide();
 
     trap_input_editor_ = new Fl_Text_Editor(0, 0, 1, 1);
     trap_input_editor_->buffer(trap_input_buffer_);
@@ -657,6 +781,7 @@ void MainWindow::buildUi() {
 }
 
 void MainWindow::layoutChildren(int width, int height) {
+    cancelCellEdit();
     menu_->resize(0, 0, width, kMenuHeight);
 
     int row1_y = kMenuHeight + 8;
@@ -677,6 +802,9 @@ void MainWindow::layoutChildren(int width, int height) {
     step_button_->resize(button_x, row1_y, 72, kButtonHeight);
     button_x += 72 + kGap;
     reset_button_->resize(button_x, row1_y, 72, kButtonHeight);
+    button_x += 72 + kGap;
+    int notice_w = std::max(1, width - button_x - kMargin);
+    state_modified_label_->resize(button_x, row1_y, notice_w, kButtonHeight);
 
     button_x = kMargin;
     jump_label_->resize(button_x, row2_y, 62, kButtonHeight);
@@ -853,6 +981,23 @@ void MainWindow::onOpenDemo(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->openDemoProgram();
 }
 
+void MainWindow::onCellEditConfirmed(Fl_Widget*, void* data) {
+    static_cast<MainWindow*>(data)->commitCellEdit();
+}
+
+void MainWindow::onRegisterTableEvent(Fl_Widget* widget, void* data) {
+    auto* self = static_cast<MainWindow*>(data);
+    auto* table = static_cast<RegisterTable*>(widget);
+    if (table->callback_context() != Fl_Table::CONTEXT_CELL || Fl::event_clicks() == 0) {
+        return;
+    }
+
+    if (table->callback_col() == 1) {
+        self->beginRegisterEdit(table->callback_row());
+    }
+    Fl::event_clicks(0);
+}
+
 void MainWindow::onMemoryTableEvent(Fl_Widget* widget, void* data) {
     auto* self = static_cast<MainWindow*>(data);
     auto* table = static_cast<MemoryTable*>(widget);
@@ -862,7 +1007,13 @@ void MainWindow::onMemoryTableEvent(Fl_Widget* widget, void* data) {
 
     int address = 0;
     if (table->addressAtRow(table->callback_row(), address)) {
-        self->toggleBreakpointAtAddress(address);
+        if (table->callback_col() == 0) {
+            self->toggleBreakpointAtAddress(address);
+        } else if (table->callback_col() == 2 || table->callback_col() == 3) {
+            self->beginMemoryEdit(table->callback_row(), table->callback_col());
+        } else {
+            self->setStatus("Address column is not editable");
+        }
         Fl::event_clicks(0);
     }
 }
@@ -923,6 +1074,8 @@ void MainWindow::openFile() {
         machine_buffer_->text("");
         latest_machine_code_.clear();
         program_loaded_ = false;
+        state_modified_ = false;
+        state_modified_label_->copy_label("");
         memory_center_ = 0x3000;
         simulator_.clearMachine();
         simulator_.clearBreakpoints();
@@ -1005,6 +1158,8 @@ void MainWindow::assembleAndLoad() {
         latest_machine_code_.clear();
         program_loaded_ = false;
         simulator_.clearMachine();
+        state_modified_ = false;
+        state_modified_label_->copy_label("");
         memory_center_ = 0x3000;
         appendLog("Assembly failed: " + assembled.error_message);
         setStatus("Assembly failed");
@@ -1019,6 +1174,8 @@ void MainWindow::assembleAndLoad() {
     if (!loaded.ok) {
         program_loaded_ = false;
         simulator_.clearMachine();
+        state_modified_ = false;
+        state_modified_label_->copy_label("");
         refreshSimulatorViews();
         appendLog("Load failed: " + loaded.message);
         setStatus("Load failed");
@@ -1026,6 +1183,8 @@ void MainWindow::assembleAndLoad() {
     }
 
     program_loaded_ = true;
+    state_modified_ = false;
+    state_modified_label_->copy_label("");
     lc3::RegisterView registers = simulator_.registers();
     memory_center_ = registers.pc;
     refreshSimulatorViews();
@@ -1169,6 +1328,8 @@ void MainWindow::resetProgram() {
 
     lc3::RegisterView registers = simulator_.registers();
     program_loaded_ = registers.loaded_words > 0;
+    state_modified_ = false;
+    state_modified_label_->copy_label("");
     memory_center_ = registers.pc;
     refreshSimulatorViews();
     appendLog(program_loaded_ ? "Program reset" : "Machine cleared");
@@ -1290,6 +1451,8 @@ void MainWindow::openDemoProgram() {
     machine_buffer_->text("");
     latest_machine_code_.clear();
     program_loaded_ = false;
+    state_modified_ = false;
+    state_modified_label_->copy_label("");
     memory_center_ = 0x3000;
     memory_jump_input_->value("x3000");
     breakpoint_input_->value("x3003");
@@ -1309,6 +1472,206 @@ void MainWindow::requestClose() {
         if (choice == 2 && !saveFile()) return;
     }
     hide();
+}
+
+void MainWindow::beginRegisterEdit(int row) {
+    if (!program_loaded_) {
+        setStatus("Load program before editing machine state");
+        return;
+    }
+    if (!register_table_->editableRow(row)) {
+        setStatus(row == 11 ? "Use Run/Pause to change RUNNING" : "This register row is not editable");
+        return;
+    }
+
+    stopRunTimer();
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    if (!register_table_->cellBounds(row, 1, x, y, width, height)) {
+        setStatus("Register cell is not visible");
+        return;
+    }
+
+    cell_edit_kind_ = 1;
+    cell_edit_row_ = row;
+    cell_editor_->resize(x + 1, y + 1, std::max(1, width - 2), std::max(1, height - 2));
+    cell_editor_->value(register_table_->valueAtRow(row).c_str());
+    cell_editor_->show();
+    cell_editor_->take_focus();
+    cell_editor_->insert_position(0, cell_editor_->size());
+}
+
+void MainWindow::beginMemoryEdit(int row, int col) {
+    if (!program_loaded_) {
+        setStatus("Load program before editing memory");
+        return;
+    }
+
+    int current_value = 0;
+    if (!memory_table_->valueAtRow(row, current_value)) {
+        setStatus("Memory row is not available");
+        return;
+    }
+
+    stopRunTimer();
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+    if (!memory_table_->cellBounds(row, col, x, y, width, height)) {
+        setStatus("Memory cell is not visible");
+        return;
+    }
+
+    cell_edit_kind_ = 2;
+    cell_edit_row_ = row;
+    cell_editor_->resize(x + 1, y + 1, std::max(1, width - 2), std::max(1, height - 2));
+    std::string current = (col == 3) ? ("b" + lc3::formatBinaryWord(current_value))
+                                     : lc3::formatHexWord(current_value);
+    cell_editor_->value(current.c_str());
+    cell_editor_->show();
+    cell_editor_->take_focus();
+    cell_editor_->insert_position(0, cell_editor_->size());
+}
+
+void MainWindow::commitCellEdit() {
+    if (!cell_editor_ || !cell_editor_->visible()) {
+        return;
+    }
+
+    bool ok = false;
+    std::string text = cell_editor_->value() ? cell_editor_->value() : "";
+    if (cell_edit_kind_ == 1) {
+        ok = applyRegisterEdit(cell_edit_row_, text);
+    } else if (cell_edit_kind_ == 2) {
+        ok = applyMemoryEdit(cell_edit_row_, text);
+    }
+
+    if (ok) {
+        cancelCellEdit();
+    } else {
+        cell_editor_->take_focus();
+        cell_editor_->insert_position(0, cell_editor_->size());
+    }
+}
+
+bool MainWindow::applyRegisterEdit(int row, const std::string& text) {
+    std::string name = register_table_->nameAtRow(row);
+    lc3::OperationResult result;
+    if (row >= 0 && row < 8) {
+        int value = 0;
+        if (!lc3::parseAddress(text, value)) {
+            setStatus("Invalid register value");
+            appendLog("Invalid register value for " + name + ": " + text);
+            fl_alert("Invalid register value for %s.", name.c_str());
+            return false;
+        }
+        result = simulator_.setRegisterValue(row, value);
+    } else if (row == 8) {
+        int value = 0;
+        if (!lc3::parseAddress(text, value)) {
+            setStatus("Invalid PC value");
+            appendLog("Invalid PC value: " + text);
+            fl_alert("Invalid PC value.");
+            return false;
+        }
+        result = simulator_.setPC(value);
+        if (result.ok) {
+            memory_center_ = value & 0xFFFF;
+            memory_jump_input_->value(lc3::formatHexWord(memory_center_).c_str());
+        }
+    } else if (row == 9) {
+        int value = 0;
+        if (!lc3::parseAddress(text, value)) {
+            setStatus("Invalid IR value");
+            appendLog("Invalid IR value: " + text);
+            fl_alert("Invalid IR value.");
+            return false;
+        }
+        result = simulator_.setIR(value);
+    } else if (row == 10) {
+        result = simulator_.setConditionCode(text);
+    } else if (row == 12) {
+        bool value = false;
+        if (!parseBoolText(text, value)) {
+            setStatus("Invalid HALTED value");
+            appendLog("Invalid HALTED value: " + text);
+            fl_alert("Invalid HALTED value. Use true/false or 1/0.");
+            return false;
+        }
+        result = simulator_.setHalted(value);
+    } else {
+        setStatus("This register row is not editable");
+        return false;
+    }
+
+    refreshSimulatorViews();
+    if (!result.ok) {
+        appendLog("State edit failed: " + result.message);
+        setStatus("State edit failed");
+        fl_alert("%s", result.message.c_str());
+        return false;
+    }
+
+    markStateModified(name + "=" + register_table_->valueAtRow(row));
+    return true;
+}
+
+bool MainWindow::applyMemoryEdit(int row, const std::string& text) {
+    int address = 0;
+    if (!memory_table_->addressAtRow(row, address)) {
+        setStatus("Memory row is not available");
+        return false;
+    }
+    int current_value = 0;
+    if (!memory_table_->valueAtRow(row, current_value)) {
+        setStatus("Memory row is not available");
+        return false;
+    }
+    (void)current_value;
+
+    int value = 0;
+    std::string address_text = lc3::formatHexWord(address);
+    if (!lc3::parseAddress(text, value)) {
+        setStatus("Invalid memory value");
+        appendLog("Invalid memory value at " + address_text + ": " + text);
+        fl_alert("Invalid memory value at %s.", address_text.c_str());
+        return false;
+    }
+
+    lc3::OperationResult result = simulator_.setMemoryValue(address, value);
+    refreshSimulatorViews();
+    if (!result.ok) {
+        appendLog("Memory edit failed: " + result.message);
+        setStatus("Memory edit failed");
+        fl_alert("%s", result.message.c_str());
+        return false;
+    }
+
+    markStateModified("MEM[" + address_text + "]=" + lc3::formatHexWord(value));
+    return true;
+}
+
+void MainWindow::cancelCellEdit() {
+    if (!cell_editor_) {
+        return;
+    }
+    cell_editor_->hide();
+    cell_edit_kind_ = 0;
+    cell_edit_row_ = -1;
+}
+
+void MainWindow::markStateModified(const std::string& detail) {
+    state_modified_ = true;
+    std::string notice = "  state modified";
+    if (!detail.empty()) {
+        notice += ": " + detail;
+    }
+    state_modified_label_->copy_label(notice.c_str());
+    appendLog("Machine state manually modified: " + detail);
+    setStatus("Machine state manually modified");
 }
 
 void MainWindow::setEditorText(const std::string& text) {
@@ -1372,6 +1735,8 @@ void MainWindow::invalidateLoadedProgram(const std::string& message) {
     latest_machine_code_.clear();
     machine_buffer_->text("");
     simulator_.clearMachine();
+    state_modified_ = false;
+    state_modified_label_->copy_label("");
     memory_center_ = 0x3000;
     memory_jump_input_->value("x3000");
     refreshSimulatorViews();

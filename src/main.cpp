@@ -53,6 +53,38 @@ int runSelfTest() {
               << " R0=" << lc3::formatHexWord(registers.r[0])
               << " CC=" << registers.cc << "\n";
 
+    lc3::OperationResult edit_register = simulator.setRegisterValue(0, 0x8001);
+    lc3::OperationResult edit_pc = simulator.setPC(0x3002);
+    lc3::OperationResult edit_ir = simulator.setIR(0x1234);
+    lc3::OperationResult edit_cc = simulator.setConditionCode("p");
+    lc3::OperationResult edit_memory = simulator.setMemoryValue(0x3002, 0xF025);
+    lc3::OperationResult edit_halted = simulator.setHalted(false);
+    registers = simulator.registers();
+    auto edited_memory = simulator.memoryWindow(0x3002, 0, 0);
+    if (!edit_register.ok || !edit_pc.ok || !edit_ir.ok || !edit_cc.ok ||
+        !edit_memory.ok || !edit_halted.ok || registers.r[0] != 0x8001 ||
+        registers.pc != 0x3002 || registers.ir != 0x1234 || registers.cc != "p" ||
+        edited_memory.empty() || edited_memory.front().value != 0xF025) {
+        std::cerr << "Manual state edit self test failed\n";
+        return 1;
+    }
+
+    std::cout << "Manual state edit self test OK: PC=" << lc3::formatHexWord(registers.pc)
+              << " R0=" << lc3::formatHexWord(registers.r[0])
+              << " IR=" << lc3::formatHexWord(registers.ir)
+              << " CC=" << registers.cc << "\n";
+
+    int parsed_value = 0;
+    if (!lc3::parseAddress("x123F", parsed_value) || parsed_value != 0x123F ||
+        !lc3::parseAddress("d12345", parsed_value) || parsed_value != 12345 ||
+        !lc3::parseAddress("12345", parsed_value) || parsed_value != 12345 ||
+        !lc3::parseAddress("b1000_0010 1011 1100", parsed_value) || parsed_value != 0x82BC) {
+        std::cerr << "Numeric parser self test failed\n";
+        return 1;
+    }
+
+    std::cout << "Numeric parser self test OK\n";
+
     lc3::SimulatorService breakpoint_simulator;
     lc3::OperationResult breakpoint_loaded = breakpoint_simulator.loadMachineCode(assembled.machine_code);
     if (!breakpoint_loaded.ok) {

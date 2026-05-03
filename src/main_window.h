@@ -44,7 +44,9 @@ private:
     static void onClearTrapOutput(Fl_Widget* widget, void* data);
     static void onCoreSelfTest(Fl_Widget* widget, void* data);
     static void onOpenDemo(Fl_Widget* widget, void* data);
+    static void onRegisterTableEvent(Fl_Widget* widget, void* data);
     static void onMemoryTableEvent(Fl_Widget* widget, void* data);
+    static void onCellEditConfirmed(Fl_Widget* widget, void* data);
     static void onTextModified(int pos, int inserted, int deleted, int restyled,
                                const char* deleted_text, void* data);
     static void onTrapInputModified(int pos, int inserted, int deleted, int restyled,
@@ -75,6 +77,13 @@ private:
     void runCoreSelfTest();
     void openDemoProgram();
     void requestClose();
+    void beginRegisterEdit(int row);
+    void beginMemoryEdit(int row, int col);
+    void commitCellEdit();
+    bool applyRegisterEdit(int row, const std::string& text);
+    bool applyMemoryEdit(int row, const std::string& text);
+    void cancelCellEdit();
+    void markStateModified(const std::string& detail);
 
     void setEditorText(const std::string& text);
     std::string editorText() const;
@@ -126,6 +135,8 @@ private:
     Fl_Box* trap_output_label_ = nullptr;
     Fl_Box* trap_remaining_label_ = nullptr;
     Fl_Box* log_label_ = nullptr;
+    Fl_Box* state_modified_label_ = nullptr;
+    Fl_Input* cell_editor_ = nullptr;
     Fl_Text_Editor* editor_ = nullptr;
     Fl_Text_Display* machine_display_ = nullptr;
     RegisterTable* register_table_ = nullptr;
@@ -149,4 +160,7 @@ private:
     bool dirty_ = false;
     bool programmatic_edit_ = false;
     bool run_timer_active_ = false;
+    bool state_modified_ = false;
+    int cell_edit_kind_ = 0;
+    int cell_edit_row_ = -1;
 };

@@ -59,3 +59,26 @@ build\x64\Release\wlt_helper_cpp.exe --self-test
 2. 决定 Release 发布形态：是否切换为 Windows 子系统、是否复制或忽略 `config.json`。
 3. 在干净 Windows 环境验证 `build\x64\Release\wlt_helper_cpp.exe` 可直接运行。
 4. 如还有时间，将 `main_window.cpp` 中的表格、文件操作、TRAP 面板等拆分为更小模块，降低最终答辩时解释复杂度。
+
+## 2026-05-03 新增：手动修改状态机状态
+
+- 新增 Load 后/单步暂停时手动修改 LC-3 状态的能力。
+- 寄存器表支持双击编辑 R0-R7、PC、IR、CC 和 HALTED；RUNNING 仍由 Run/Pause 控制，避免和 FLTK 定时器状态冲突。
+- 内存表支持双击非 Flag 列修改该地址的 16 位内容；双击 Flag 列仍保留原有切换断点行为。
+- GUI 顶部新增提示文本，检测到手动修改后显示“状态机状态被人为修改”，并在日志中记录修改项。
+- `SimulatorService` 新增 `setMemoryValue`、`setRegisterValue`、`setPC`、`setIR`、`setConditionCode`、`setHalted` 接口；底层 `StateMachine` 增加对应写入入口。
+- `--self-test` 已扩展覆盖手动修改内存、寄存器、PC、IR、CC 和 HALTED 的路径。
+
+## 2026-05-03 优化：表格内联编辑与数字输入格式
+
+- 将状态编辑从弹窗输入改为表格内联输入：双击寄存器值或内存值单元格后，在原单元格位置显示输入框，按 Enter 确认。
+- 合法输入直接提交并刷新视图；非法输入才弹出提示框，并保留输入框方便继续修改。
+- 内存表中双击 `Flag` 列仍用于切换断点；双击 `Hex` 或 `Binary` 列用于修改该地址的内存内容。
+- 数字解析支持 `x123F` 十六进制、`d12345` 十进制、`b1000_0010 1011 1100` 二进制；无 `x`/`d`/`b` 前缀时默认按十进制处理。
+- 数字输入中的空格和下划线会被忽略，便于分组输入。
+
+## 2026-05-03 修复：内联编辑单元格定位失败
+
+- 修复双击内存/寄存器表格时总是提示 `Memory cell is not visible` 或 `Register cell is not visible` 的问题。
+- `RegisterTable` 和 `MemoryTable` 现在会在绘制可见单元格时缓存单元格坐标；开始内联编辑时优先使用 FLTK `find_cell`，失败时回退到绘制缓存定位输入框。
+- Release 构建通过，`build\x64\Release\wlt_helper_cpp.exe --self-test` 通过。
