@@ -118,3 +118,24 @@ build\x64\Release\lc3_studio.exe --self-test
 - 修复自动跟随时仅滚动到 Memory 窗口第 0 行、导致较矮窗口下 PC 行仍不可见的问题。
 - `MemoryTable` 新增按当前控件高度和行高计算可见行数的逻辑，自动跟随时会把 PC 地址所在行滚动到当前可见区域的中间靠上位置。
 - 该计算使用 FLTK 控件实际布局尺寸，不依赖固定屏幕分辨率，适配不同窗口大小和 DPI 缩放。
+
+## 2026-05-03 新增：ASM Source 自动缩进与 Shift+Tab 反缩进
+
+- `ASM Source` 编辑器新增回车自动缩进：用户按 Enter 换行时，会复制当前行开头的空格和 tab 到下一行。
+- `ASM Source` 编辑器新增 `Shift+Tab` 反缩进：当前行或选中多行会删除一级行首缩进；行首是 tab 时删除 1 个 tab，行首是空格时最多删除 4 个空格。
+- 该逻辑只应用于主源代码编辑区，不影响 TRAP Input Buffer 的普通文本输入行为。
+- Release 构建通过，`build\x64\Release\lc3_studio.exe --self-test` 通过。
+
+## 2026-05-03 新增：Memory 地址输入回车跳转
+
+- Memory 地址跳转输入栏现在按 Enter 会直接触发现有 Jump 操作，等价于点击 `Jump` 按钮。
+
+## 2026-05-03 修复：Memory 地址输入回车后文本全选
+
+- 将 Memory 地址跳转输入栏改为自定义 `Fl_Input` 子类处理 Enter，直接触发 Jump 回调并消费按键事件。
+- 回车跳转后会把输入光标保留在文本末尾，避免 FLTK 默认 Enter 行为导致输入内容被全部选中。
+
+## 2026-05-03 新增：Memory 一键跳转到 PC
+
+- 在 Memory 地址跳转控件旁新增 `To PC` 按钮。
+- 点击后会读取当前 LC-3 PC，更新地址输入栏为 PC 地址，并将 Memory 表跳转到该位置。

@@ -39,6 +39,7 @@ private:
     static void onStep(Fl_Widget* widget, void* data);
     static void onReset(Fl_Widget* widget, void* data);
     static void onJumpMemory(Fl_Widget* widget, void* data);
+    static void onJumpMemoryToPc(Fl_Widget* widget, void* data);
     static void onAutoMemoryScrollChanged(Fl_Widget* widget, void* data);
     static void onAddBreakpoint(Fl_Widget* widget, void* data);
     static void onRemoveBreakpoint(Fl_Widget* widget, void* data);
@@ -71,6 +72,7 @@ private:
     void stepOnce();
     void resetProgram();
     void jumpMemory();
+    void jumpMemoryToPc();
     void setAutoMemoryScroll(bool enabled);
     void addBreakpoint();
     void removeBreakpoint();
@@ -123,6 +125,7 @@ private:
     Fl_Button* step_button_ = nullptr;
     Fl_Button* reset_button_ = nullptr;
     Fl_Button* jump_button_ = nullptr;
+    Fl_Button* jump_pc_button_ = nullptr;
     Fl_Check_Button* auto_memory_scroll_check_ = nullptr;
     Fl_Button* add_breakpoint_button_ = nullptr;
     Fl_Button* remove_breakpoint_button_ = nullptr;

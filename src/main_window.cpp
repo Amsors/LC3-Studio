@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <sstream>
+#include <vector>
 
 namespace {
 
@@ -39,6 +40,24 @@ constexpr int kMemoryRowsAfterPc = 32;
 constexpr int kRunStepsPerTick = 100;
 constexpr double kRunTickSeconds = 0.02;
 
+class EnterCallbackInput : public Fl_Input {
+public:
+    using Fl_Input::Fl_Input;
+
+    int handle(int event) override {
+        if (event == FL_KEYDOWN) {
+            int key = Fl::event_key();
+            bool command_modifier = (Fl::event_state() & (FL_CTRL | FL_ALT | FL_META)) != 0;
+            if (!command_modifier && (key == FL_Enter || key == FL_KP_Enter)) {
+                do_callback();
+                insert_position(size());
+                return 1;
+            }
+        }
+        return Fl_Input::handle(event);
+    }
+};
+
 class WheelIsolatedTextEditor : public Fl_Text_Editor {
 public:
     using Fl_Text_Editor::Fl_Text_Editor;
@@ -49,6 +68,172 @@ public:
             return 1;
         }
         return Fl_Text_Editor::handle(event);
+    }
+};
+
+class AsmSourceEditor : public WheelIsolatedTextEditor {
+public:
+    using WheelIsolatedTextEditor::WheelIsolatedTextEditor;
+
+    int handle(int event) override {
+        if (event == FL_KEYDOWN) {
+            int key = Fl::event_key();
+            int state = Fl::event_state();
+            bool command_modifier = (state & (FL_CTRL | FL_ALT | FL_META)) != 0;
+            if (!command_modifier && (key == FL_Enter || key == FL_KP_Enter)) {
+                return insertNewlineWithIndent();
+            }
+            if (!command_modifier && key == FL_Tab && (state & FL_SHIFT)) {
+                return outdentOneLevel();
+            }
+        }
+        return WheelIsolatedTextEditor::handle(event);
+    }
+
+private:
+    static constexpr int kIndentSpaces = 4;
+
+    std::string currentLineIndent(int pos) const {
+        Fl_Text_Buffer* text_buffer = buffer();
+        if (!text_buffer) {
+            return "";
+        }
+
+        int line_start = text_buffer->line_start(pos);
+        int line_end = text_buffer->line_end(pos);
+        int indent_end = line_start;
+        while (indent_end < line_end) {
+            char c = text_buffer->byte_at(indent_end);
+            if (c != ' ' && c != '\t') {
+                break;
+            }
+            indent_end++;
+        }
+
+        if (indent_end <= line_start) {
+            return "";
+        }
+
+        char* text = text_buffer->text_range(line_start, indent_end);
+        std::string indent = text ? text : "";
+        std::free(text);
+        return indent;
+    }
+
+    int insertNewlineWithIndent() {
+        Fl_Text_Buffer* text_buffer = buffer();
+        if (!text_buffer) {
+            return 0;
+        }
+
+        int replace_start = insert_position();
+        int replace_end = replace_start;
+        if (text_buffer->selected()) {
+            text_buffer->selection_position(&replace_start, &replace_end);
+        }
+
+        std::string inserted_text = "\n" + currentLineIndent(replace_start);
+        text_buffer->replace(replace_start, replace_end, inserted_text.c_str());
+        text_buffer->unselect();
+        insert_position(replace_start + static_cast<int>(inserted_text.size()));
+        show_insert_position();
+        return 1;
+    }
+
+    int removableIndentAt(int line_start) const {
+        Fl_Text_Buffer* text_buffer = buffer();
+        if (!text_buffer || line_start >= text_buffer->length()) {
+            return 0;
+        }
+
+        char first = text_buffer->byte_at(line_start);
+        if (first == '\t') {
+            return 1;
+        }
+        if (first != ' ') {
+            return 0;
+        }
+
+        int line_end = text_buffer->line_end(line_start);
+        int count = 0;
+        while (line_start + count < line_end && count < kIndentSpaces &&
+               text_buffer->byte_at(line_start + count) == ' ') {
+            count++;
+        }
+        return count;
+    }
+
+    static void adjustPositionAfterDelete(int delete_start, int delete_count, int& pos) {
+        if (delete_count <= 0 || delete_start >= pos) {
+            return;
+        }
+        if (delete_start + delete_count <= pos) {
+            pos -= delete_count;
+        } else {
+            pos = delete_start;
+        }
+    }
+
+    int outdentOneLevel() {
+        Fl_Text_Buffer* text_buffer = buffer();
+        if (!text_buffer) {
+            return 0;
+        }
+
+        int selection_start = 0;
+        int selection_end = 0;
+        bool has_selection = text_buffer->selected() &&
+                             text_buffer->selection_position(&selection_start, &selection_end);
+        int range_start = has_selection ? selection_start : insert_position();
+        int range_end = has_selection ? selection_end : range_start;
+        int last_pos = range_end;
+        if (has_selection && last_pos > range_start &&
+            text_buffer->byte_at(last_pos - 1) == '\n') {
+            last_pos--;
+        }
+
+        std::vector<int> line_starts;
+        int line_start = text_buffer->line_start(range_start);
+        while (true) {
+            line_starts.push_back(line_start);
+            int line_end = text_buffer->line_end(line_start);
+            if (line_end >= last_pos || line_end >= text_buffer->length()) {
+                break;
+            }
+            line_start = line_end + 1;
+        }
+
+        int new_insert_position = insert_position();
+        int new_selection_start = selection_start;
+        int new_selection_end = selection_end;
+        bool changed = false;
+
+        for (auto it = line_starts.rbegin(); it != line_starts.rend(); ++it) {
+            int delete_start = *it;
+            int delete_count = removableIndentAt(delete_start);
+            if (delete_count <= 0) {
+                continue;
+            }
+            text_buffer->remove(delete_start, delete_start + delete_count);
+            adjustPositionAfterDelete(delete_start, delete_count, new_insert_position);
+            if (has_selection) {
+                adjustPositionAfterDelete(delete_start, delete_count, new_selection_start);
+                adjustPositionAfterDelete(delete_start, delete_count, new_selection_end);
+            }
+            changed = true;
+        }
+
+        if (has_selection) {
+            text_buffer->select(new_selection_start, new_selection_end);
+            insert_position(new_selection_end);
+        } else {
+            text_buffer->unselect();
+            insert_position(new_insert_position);
+        }
+        if (changed) {
+            show_insert_position();
+        }
+        return 1;
     }
 };
 
@@ -133,10 +318,13 @@ void MainWindow::buildUi() {
     state_modified_label_->labelcolor(fl_rgb_color(139, 75, 0));
     state_modified_label_->labelfont(FL_HELVETICA_BOLD);
     state_modified_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
-    memory_jump_input_ = new Fl_Input(kMargin + 780, kMenuHeight + 9, 104, kButtonHeight, "");
+    memory_jump_input_ = new EnterCallbackInput(kMargin + 780, kMenuHeight + 9, 104, kButtonHeight, "");
     memory_jump_input_->value("x3000");
+    memory_jump_input_->callback(onJumpMemory, this);
     jump_button_ = new Fl_Button(kMargin + 892, kMenuHeight + 9, 80, kButtonHeight, "Jump");
     jump_button_->callback(onJumpMemory, this);
+    jump_pc_button_ = new Fl_Button(0, 0, 1, kButtonHeight, "To PC");
+    jump_pc_button_->callback(onJumpMemoryToPc, this);
     breakpoint_input_ = new Fl_Input(0, 0, 1, kButtonHeight, "");
     breakpoint_input_->value("x3003");
     add_breakpoint_button_ = new Fl_Button(0, 0, 1, kButtonHeight, "Add BP");
@@ -188,7 +376,7 @@ void MainWindow::buildUi() {
     trap_output_buffer_ = new Fl_Text_Buffer();
     log_buffer_ = new Fl_Text_Buffer();
 
-    editor_ = new WheelIsolatedTextEditor(0, 0, 1, 1);
+    editor_ = new AsmSourceEditor(0, 0, 1, 1);
     editor_->buffer(editor_buffer_);
     editor_->textfont(FL_COURIER);
     editor_->textsize(14);
@@ -286,7 +474,9 @@ void MainWindow::layoutChildren(int width, int height) {
     memory_jump_input_->resize(button_x, row2_y, jump_input_w, kButtonHeight);
     button_x += jump_input_w + kGap;
     jump_button_->resize(button_x, row2_y, 76, kButtonHeight);
-    button_x += 76 + 2 * kGap;
+    button_x += 76 + kGap;
+    jump_pc_button_->resize(button_x, row2_y, 64, kButtonHeight);
+    button_x += 64 + 2 * kGap;
 
     breakpoint_label_->resize(button_x, row2_y, 86, kButtonHeight);
     button_x += 86 + kGap;
@@ -432,6 +622,10 @@ void MainWindow::onReset(Fl_Widget*, void* data) {
 
 void MainWindow::onJumpMemory(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->jumpMemory();
+}
+
+void MainWindow::onJumpMemoryToPc(Fl_Widget*, void* data) {
+    static_cast<MainWindow*>(data)->jumpMemoryToPc();
 }
 
 void MainWindow::onAutoMemoryScrollChanged(Fl_Widget* widget, void* data) {
@@ -831,6 +1025,14 @@ void MainWindow::jumpMemory() {
     memory_center_ = address & 0xFFFF;
     refreshMemoryView();
     setStatus("Memory centered at " + lc3::formatHexWord(memory_center_));
+}
+
+void MainWindow::jumpMemoryToPc() {
+    lc3::RegisterView registers = simulator_.registers();
+    memory_center_ = registers.pc & 0xFFFF;
+    memory_jump_input_->value(lc3::formatHexWord(memory_center_).c_str());
+    refreshMemoryView(true);
+    setStatus("Memory centered at PC " + lc3::formatHexWord(memory_center_));
 }
 
 void MainWindow::setAutoMemoryScroll(bool enabled) {
