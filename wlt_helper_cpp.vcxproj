@@ -114,12 +114,14 @@
 
   <ItemGroup>
     <ClCompile Include="src\*.cpp" />
+    <ClCompile Include="src\ui\*.cpp" />
     <ClCompile Include="LC3\lc3_assembler_adapter.cpp" />
     <ClCompile Include="LC3\lc3_simulator_adapter.cpp" />
   </ItemGroup>
 
   <ItemGroup>
     <ClInclude Include="src\*.h" />
+    <ClInclude Include="src\ui\*.h" />
     <ClInclude Include="LC3\lc3_gui_adapter.h" />
   </ItemGroup>
 

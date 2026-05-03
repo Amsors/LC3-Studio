@@ -1,5 +1,10 @@
 #include "main_window.h"
 
+#include "ui/asm_highlighter.h"
+#include "ui/file_utils.h"
+#include "ui/memory_table.h"
+#include "ui/register_table.h"
+
 #include <FL/Enumerations.H>
 #include <FL/Fl.H>
 #include <FL/Fl_Box.H>
@@ -7,7 +12,7 @@
 #include <FL/Fl_Input.H>
 #include <FL/Fl_Menu_Bar.H>
 #include <FL/Fl_Native_File_Chooser.H>
-#include <FL/Fl_Table_Row.H>
+#include <FL/Fl_Table.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
 #include <FL/Fl_Text_Editor.H>
@@ -15,13 +20,8 @@
 #include <FL/fl_draw.H>
 
 #include <algorithm>
-#include <array>
-#include <cctype>
 #include <cstdlib>
-#include <fstream>
-#include <iomanip>
 #include <sstream>
-#include <unordered_set>
 
 namespace {
 
@@ -38,565 +38,7 @@ constexpr int kMemoryRowsAfterPc = 32;
 constexpr int kRunStepsPerTick = 100;
 constexpr double kRunTickSeconds = 0.02;
 
-constexpr char kStyleDefault = 'A';
-constexpr char kStyleInstruction = 'B';
-constexpr char kStyleRegister = 'C';
-constexpr char kStyleImmediate = 'D';
-constexpr char kStyleLabel = 'E';
-constexpr char kStyleComment = 'F';
-
-const Fl_Text_Display::Style_Table_Entry kAsmStyleTable[] = {
-    { FL_BLACK, FL_COURIER, 14, 0, 0 },
-    { fl_rgb_color(20, 74, 145), FL_COURIER_BOLD, 14, 0, 0 },
-    { fl_rgb_color(174, 43, 43), FL_COURIER_BOLD, 14, 0, 0 },
-    { fl_rgb_color(30, 122, 67), FL_COURIER, 14, 0, 0 },
-    { fl_rgb_color(116, 70, 168), FL_COURIER, 14, 0, 0 },
-    { fl_rgb_color(113, 119, 124), FL_COURIER_ITALIC, 14, 0, 0 },
-};
-
-struct AsmToken {
-    std::size_t start = 0;
-    std::size_t end = 0;
-    std::string lower_text;
-};
-
-struct CellBounds {
-    int row = -1;
-    int col = -1;
-    int x = 0;
-    int y = 0;
-    int width = 0;
-    int height = 0;
-};
-
-void rememberCellBounds(std::vector<CellBounds>& cells,
-                        int row,
-                        int col,
-                        int x,
-                        int y,
-                        int width,
-                        int height) {
-    for (CellBounds& cell : cells) {
-        if (cell.row == row && cell.col == col) {
-            cell.x = x;
-            cell.y = y;
-            cell.width = width;
-            cell.height = height;
-            return;
-        }
-    }
-    cells.push_back({ row, col, x, y, width, height });
-}
-
-bool lookupCellBounds(const std::vector<CellBounds>& cells,
-                      int row,
-                      int col,
-                      int& x,
-                      int& y,
-                      int& width,
-                      int& height) {
-    for (const CellBounds& cell : cells) {
-        if (cell.row == row && cell.col == col && cell.width > 0 && cell.height > 0) {
-            x = cell.x;
-            y = cell.y;
-            width = cell.width;
-            height = cell.height;
-            return true;
-        }
-    }
-    return false;
-}
-
-std::filesystem::path utf8Path(const char* text) {
-    return text ? std::filesystem::u8path(text) : std::filesystem::path();
-}
-
-std::string readFile(const std::filesystem::path& path) {
-    std::ifstream input(path, std::ios::binary);
-    if (!input) {
-        throw std::runtime_error("Cannot open file for reading: " + path.string());
-    }
-    std::ostringstream buffer;
-    buffer << input.rdbuf();
-    return buffer.str();
-}
-
-void writeFile(const std::filesystem::path& path, const std::string& text) {
-    std::ofstream output(path, std::ios::binary | std::ios::trunc);
-    if (!output) {
-        throw std::runtime_error("Cannot open file for writing: " + path.string());
-    }
-    output.write(text.data(), static_cast<std::streamsize>(text.size()));
-    if (!output) {
-        throw std::runtime_error("Failed while writing file: " + path.string());
-    }
-}
-
-std::string lowercaseAscii(std::string text) {
-    for (char& c : text) {
-        if (c >= 'A' && c <= 'Z') {
-            c = static_cast<char>(c - 'A' + 'a');
-        }
-    }
-    return text;
-}
-
-bool isRegisterToken(const std::string& token) {
-    return token.size() == 2 && token[0] == 'r' && token[1] >= '0' && token[1] <= '7';
-}
-
-bool hasValidDigits(const std::string& token, std::size_t begin, int base) {
-    if (begin >= token.size()) {
-        return false;
-    }
-    if (token[begin] == '-') {
-        begin++;
-        if (begin >= token.size()) {
-            return false;
-        }
-    }
-
-    for (std::size_t i = begin; i < token.size(); i++) {
-        unsigned char c = static_cast<unsigned char>(token[i]);
-        switch (base) {
-            case 2:
-                if (c != '0' && c != '1') return false;
-                break;
-            case 8:
-                if (c < '0' || c > '7') return false;
-                break;
-            case 10:
-                if (!std::isdigit(c)) return false;
-                break;
-            case 16:
-                if (!std::isxdigit(c)) return false;
-                break;
-            default:
-                return false;
-        }
-    }
-    return true;
-}
-
-bool isImmediateToken(const std::string& token) {
-    if (token.empty()) {
-        return false;
-    }
-    if (token.size() >= 2 && token.front() == '"' && token.back() == '"') {
-        return true;
-    }
-    switch (token[0]) {
-        case '#': return hasValidDigits(token, 1, 10);
-        case 'x': return hasValidDigits(token, 1, 16);
-        case 'b': return hasValidDigits(token, 1, 2);
-        case 'o': return hasValidDigits(token, 1, 8);
-        case '-': return hasValidDigits(token, 0, 10);
-        default:
-            return std::isdigit(static_cast<unsigned char>(token[0])) &&
-                   hasValidDigits(token, 0, 10);
-    }
-}
-
-bool isInstructionToken(const std::string& token) {
-    static const std::unordered_set<std::string> instructions = {
-        "add", "and", "br", "brn", "brz", "brp", "brnz", "brnp", "brzp", "brnzp",
-        "jmp", "jsr", "jsrr", "ld", "ldi", "ldr", "lea", "not", "ret", "rti",
-        "st", "sti", "str", "trap", "getc", "out", "puts", "in", "putsp", "halt",
-        ".orig", ".fill", ".stringz", ".blkw", ".end"
-    };
-    return instructions.find(token) != instructions.end();
-}
-
-bool isLabelToken(const std::string& token) {
-    if (token.empty()) {
-        return false;
-    }
-    unsigned char first = static_cast<unsigned char>(token[0]);
-    if (!(std::isalpha(first) || token[0] == '_')) {
-        return false;
-    }
-    for (char c : token) {
-        unsigned char ch = static_cast<unsigned char>(c);
-        if (!(std::isalnum(ch) || c == '_')) {
-            return false;
-        }
-    }
-    return !isRegisterToken(token) && !isInstructionToken(token);
-}
-
-bool parseBoolText(const std::string& text, bool& value) {
-    std::string lower = lowercaseAscii(text);
-    lower.erase(std::remove_if(lower.begin(), lower.end(), [](unsigned char c) {
-        return std::isspace(c) != 0;
-    }), lower.end());
-
-    if (lower == "1" || lower == "true" || lower == "yes" || lower == "y") {
-        value = true;
-        return true;
-    }
-    if (lower == "0" || lower == "false" || lower == "no" || lower == "n") {
-        value = false;
-        return true;
-    }
-    return false;
-}
-
-void applyStyle(std::string& styles, std::size_t start, std::size_t end, char style) {
-    if (start >= styles.size()) {
-        return;
-    }
-    end = std::min(end, styles.size());
-    std::fill(styles.begin() + static_cast<std::ptrdiff_t>(start),
-              styles.begin() + static_cast<std::ptrdiff_t>(end),
-              style);
-}
-
-std::size_t findCommentStart(const std::string& text, std::size_t begin, std::size_t end) {
-    bool in_string = false;
-    bool escape = false;
-    for (std::size_t i = begin; i < end; i++) {
-        char c = text[i];
-        if (in_string) {
-            if (escape) {
-                escape = false;
-            } else if (c == '\\') {
-                escape = true;
-            } else if (c == '"') {
-                in_string = false;
-            }
-            continue;
-        }
-        if (c == '"') {
-            in_string = true;
-        } else if (c == ';') {
-            return i;
-        }
-    }
-    return end;
-}
-
-std::vector<AsmToken> tokenizeAsmCode(const std::string& text, std::size_t begin, std::size_t end) {
-    std::vector<AsmToken> tokens;
-    std::size_t pos = begin;
-    while (pos < end) {
-        while (pos < end && (text[pos] == ' ' || text[pos] == '\t' || text[pos] == ',')) {
-            pos++;
-        }
-        if (pos >= end) {
-            break;
-        }
-
-        std::size_t token_start = pos;
-        if (text[pos] == '"') {
-            pos++;
-            bool escape = false;
-            while (pos < end) {
-                char c = text[pos++];
-                if (escape) {
-                    escape = false;
-                } else if (c == '\\') {
-                    escape = true;
-                } else if (c == '"') {
-                    break;
-                }
-            }
-        } else {
-            while (pos < end && text[pos] != ' ' && text[pos] != '\t' &&
-                   text[pos] != ',' && text[pos] != '"') {
-                pos++;
-            }
-        }
-
-        tokens.push_back({ token_start, pos, lowercaseAscii(text.substr(token_start, pos - token_start)) });
-    }
-    return tokens;
-}
-
-std::string buildAsmStyleText(const std::string& text) {
-    std::string styles(text.size(), kStyleDefault);
-    std::size_t line_begin = 0;
-    while (line_begin < text.size()) {
-        std::size_t line_end = text.find('\n', line_begin);
-        if (line_end == std::string::npos) {
-            line_end = text.size();
-        }
-
-        std::size_t comment_start = findCommentStart(text, line_begin, line_end);
-        if (comment_start < line_end) {
-            applyStyle(styles, comment_start, line_end, kStyleComment);
-        }
-
-        std::vector<AsmToken> tokens = tokenizeAsmCode(text, line_begin, comment_start);
-        for (const AsmToken& token : tokens) {
-            char style = kStyleDefault;
-            if (isInstructionToken(token.lower_text)) {
-                style = kStyleInstruction;
-            } else if (isRegisterToken(token.lower_text)) {
-                style = kStyleRegister;
-            } else if (isImmediateToken(token.lower_text)) {
-                style = kStyleImmediate;
-            } else if (isLabelToken(token.lower_text)) {
-                style = kStyleLabel;
-            }
-            applyStyle(styles, token.start, token.end, style);
-        }
-
-        line_begin = (line_end < text.size()) ? line_end + 1 : text.size();
-    }
-    return styles;
-}
-
 } // namespace
-
-class RegisterTable : public Fl_Table_Row {
-public:
-    RegisterTable(int x, int y, int width, int height)
-        : Fl_Table_Row(x, y, width, height) {
-        rows(13);
-        cols(2);
-        col_header(1);
-        col_header_height(24);
-        row_header(0);
-        col_resize(1);
-        row_resize(0);
-        row_height_all(23);
-        col_width(0, 86);
-        col_width(1, 112);
-        end();
-    }
-
-    void setRegisters(const lc3::RegisterView& registers) {
-        registers_ = registers;
-        redraw();
-    }
-
-    void fitColumns(int width) {
-        visible_cell_bounds_.clear();
-        int name_width = std::min(96, std::max(72, width * 42 / 100));
-        col_width(0, name_width);
-        col_width(1, std::max(70, width - name_width - 18));
-    }
-
-    bool editableRow(int row) const {
-        return (row >= 0 && row <= 10) || row == 12;
-    }
-
-    bool cellBounds(int row, int col, int& x, int& y, int& width, int& height) {
-        if (find_cell(CONTEXT_CELL, row, col, x, y, width, height) != 0) {
-            return true;
-        }
-        return lookupCellBounds(visible_cell_bounds_, row, col, x, y, width, height);
-    }
-
-    std::string nameAtRow(int row) const {
-        return registerName(row);
-    }
-
-    std::string valueAtRow(int row) const {
-        return registerValue(row);
-    }
-
-private:
-    void draw_cell(TableContext context, int row, int col, int x, int y, int width, int height) override {
-        switch (context) {
-            case CONTEXT_STARTPAGE:
-                visible_cell_bounds_.clear();
-                fl_font(FL_HELVETICA, 13);
-                return;
-            case CONTEXT_COL_HEADER:
-                drawHeaderCell(col == 0 ? "Name" : "Value", x, y, width, height);
-                return;
-            case CONTEXT_CELL:
-                rememberCellBounds(visible_cell_bounds_, row, col, x, y, width, height);
-                drawValueCell(row, col, x, y, width, height);
-                return;
-            default:
-                return;
-        }
-    }
-
-    static void drawHeaderCell(const char* text, int x, int y, int width, int height) {
-        fl_push_clip(x, y, width, height);
-        fl_draw_box(FL_THIN_UP_BOX, x, y, width, height, fl_rgb_color(232, 236, 240));
-        fl_color(FL_BLACK);
-        fl_font(FL_HELVETICA_BOLD, 12);
-        fl_draw(text, x + 5, y, width - 10, height, FL_ALIGN_LEFT | FL_ALIGN_CENTER);
-        fl_pop_clip();
-    }
-
-    void drawValueCell(int row, int col, int x, int y, int width, int height) const {
-        fl_push_clip(x, y, width, height);
-        Fl_Color background = (row % 2 == 0) ? FL_WHITE : fl_rgb_color(248, 250, 252);
-        if (row == 8) {
-            background = fl_rgb_color(232, 245, 255);
-        }
-        fl_color(background);
-        fl_rectf(x, y, width, height);
-        fl_color(fl_rgb_color(214, 220, 226));
-        fl_rect(x, y, width, height);
-        fl_color(FL_BLACK);
-        fl_font(col == 0 ? FL_HELVETICA_BOLD : FL_COURIER, 13);
-        std::string text = col == 0 ? registerName(row) : registerValue(row);
-        fl_draw(text.c_str(), x + 5, y, width - 10, height, FL_ALIGN_LEFT | FL_ALIGN_CENTER);
-        fl_pop_clip();
-    }
-
-    static std::string registerName(int row) {
-        if (row >= 0 && row < 8) {
-            return "R" + std::to_string(row);
-        }
-        static const std::array<const char*, 5> names = { "PC", "IR", "CC", "RUNNING", "HALTED" };
-        int index = row - 8;
-        return index >= 0 && index < static_cast<int>(names.size()) ? names[static_cast<std::size_t>(index)] : "";
-    }
-
-    std::string registerValue(int row) const {
-        if (row >= 0 && row < 8) {
-            return lc3::formatHexWord(registers_.r[row]);
-        }
-        switch (row) {
-            case 8: return lc3::formatHexWord(registers_.pc);
-            case 9: return lc3::formatHexWord(registers_.ir);
-            case 10: return registers_.cc;
-            case 11: return registers_.running ? "true" : "false";
-            case 12: return registers_.halted ? "true" : "false";
-            default: return "";
-        }
-    }
-
-    lc3::RegisterView registers_;
-    std::vector<CellBounds> visible_cell_bounds_;
-};
-
-class MemoryTable : public Fl_Table_Row {
-public:
-    MemoryTable(int x, int y, int width, int height)
-        : Fl_Table_Row(x, y, width, height) {
-        rows(0);
-        cols(4);
-        col_header(1);
-        col_header_height(24);
-        row_header(0);
-        col_resize(1);
-        row_resize(0);
-        row_height_all(22);
-        end();
-    }
-
-    void setRows(const std::vector<lc3::MemoryRow>& memory_rows) {
-        rows_ = memory_rows;
-        Fl_Table_Row::rows(static_cast<int>(rows_.size()));
-        visible_cell_bounds_.clear();
-        redraw();
-    }
-
-    void fitColumns(int width) {
-        visible_cell_bounds_.clear();
-        int flag_width = 62;
-        int address_width = 86;
-        int hex_width = 78;
-        int binary_width = std::max(150, width - flag_width - address_width - hex_width - 20);
-        col_width(0, flag_width);
-        col_width(1, address_width);
-        col_width(2, hex_width);
-        col_width(3, binary_width);
-    }
-
-    bool addressAtRow(int row, int& address) const {
-        if (row < 0 || row >= static_cast<int>(rows_.size())) {
-            return false;
-        }
-        address = rows_[static_cast<std::size_t>(row)].address;
-        return true;
-    }
-
-    bool valueAtRow(int row, int& value) const {
-        if (row < 0 || row >= static_cast<int>(rows_.size())) {
-            return false;
-        }
-        value = rows_[static_cast<std::size_t>(row)].value;
-        return true;
-    }
-
-    bool cellBounds(int row, int col, int& x, int& y, int& width, int& height) {
-        if (find_cell(CONTEXT_CELL, row, col, x, y, width, height) != 0) {
-            return true;
-        }
-        return lookupCellBounds(visible_cell_bounds_, row, col, x, y, width, height);
-    }
-
-private:
-    void draw_cell(TableContext context, int row, int col, int x, int y, int width, int height) override {
-        switch (context) {
-            case CONTEXT_STARTPAGE:
-                visible_cell_bounds_.clear();
-                fl_font(FL_HELVETICA, 13);
-                return;
-            case CONTEXT_COL_HEADER:
-                drawHeaderCell(columnName(col), x, y, width, height);
-                return;
-            case CONTEXT_CELL:
-                rememberCellBounds(visible_cell_bounds_, row, col, x, y, width, height);
-                drawValueCell(row, col, x, y, width, height);
-                return;
-            default:
-                return;
-        }
-    }
-
-    static const char* columnName(int col) {
-        static const std::array<const char*, 4> names = { "Flag", "Address", "Hex", "Binary" };
-        return (col >= 0 && col < static_cast<int>(names.size())) ? names[static_cast<std::size_t>(col)] : "";
-    }
-
-    static void drawHeaderCell(const char* text, int x, int y, int width, int height) {
-        fl_push_clip(x, y, width, height);
-        fl_draw_box(FL_THIN_UP_BOX, x, y, width, height, fl_rgb_color(232, 236, 240));
-        fl_color(FL_BLACK);
-        fl_font(FL_HELVETICA_BOLD, 12);
-        fl_draw(text, x + 5, y, width - 10, height, FL_ALIGN_LEFT | FL_ALIGN_CENTER);
-        fl_pop_clip();
-    }
-
-    void drawValueCell(int row, int col, int x, int y, int width, int height) const {
-        if (row < 0 || row >= static_cast<int>(rows_.size())) {
-            return;
-        }
-
-        const lc3::MemoryRow& memory = rows_[static_cast<std::size_t>(row)];
-        fl_push_clip(x, y, width, height);
-        Fl_Color background = (row % 2 == 0) ? FL_WHITE : fl_rgb_color(248, 250, 252);
-        if (memory.is_pc) {
-            background = fl_rgb_color(255, 245, 204);
-        }
-        fl_color(background);
-        fl_rectf(x, y, width, height);
-        fl_color(fl_rgb_color(214, 220, 226));
-        fl_rect(x, y, width, height);
-        fl_color(FL_BLACK);
-        fl_font(col == 3 ? FL_COURIER : FL_HELVETICA, 13);
-        std::string text = valueText(memory, col);
-        fl_draw(text.c_str(), x + 5, y, width - 10, height, FL_ALIGN_LEFT | FL_ALIGN_CENTER);
-        fl_pop_clip();
-    }
-
-    static std::string valueText(const lc3::MemoryRow& memory, int col) {
-        switch (col) {
-            case 0:
-                if (memory.is_pc && memory.has_breakpoint) return "PC BP";
-                if (memory.is_pc) return "PC";
-                if (memory.has_breakpoint) return "BP";
-                return "";
-            case 1: return lc3::formatHexWord(memory.address);
-            case 2: return lc3::formatHexWord(memory.value);
-            case 3: return lc3::formatBinaryWord(memory.value);
-            default: return "";
-        }
-    }
-
-    std::vector<lc3::MemoryRow> rows_;
-    std::vector<CellBounds> visible_cell_bounds_;
-};
 
 MainWindow::MainWindow(int width, int height)
     : Fl_Double_Window(width, height, "LC-3 Assembly Studio") {
@@ -723,9 +165,9 @@ void MainWindow::buildUi() {
     editor_->linenumber_align(FL_ALIGN_RIGHT);
     editor_->linenumber_size(12);
     editor_->highlight_data(editor_style_buffer_,
-                            kAsmStyleTable,
-                            static_cast<int>(sizeof(kAsmStyleTable) / sizeof(kAsmStyleTable[0])),
-                            kStyleDefault,
+                            ui::kAsmStyleTable,
+                            ui::kAsmStyleTableSize,
+                            ui::kAsmStyleDefault,
                             nullptr,
                             nullptr);
     editor_buffer_->add_modify_callback(onTextModified, this);
@@ -1066,9 +508,9 @@ void MainWindow::openFile() {
         return;
     }
 
-    std::filesystem::path path = utf8Path(chooser.filename());
+    std::filesystem::path path = ui::utf8Path(chooser.filename());
     try {
-        setEditorText(readFile(path));
+        setEditorText(ui::readFile(path));
         current_file_ = path;
         dirty_ = false;
         machine_buffer_->text("");
@@ -1097,7 +539,7 @@ bool MainWindow::saveFile() {
     }
 
     try {
-        writeFile(current_file_, editorText());
+        ui::writeFile(current_file_, editorText());
         dirty_ = false;
         appendLog("Saved " + fileDisplayName(current_file_));
         setStatus("Saved " + fileDisplayName(current_file_));
@@ -1127,7 +569,7 @@ bool MainWindow::saveFileAs() {
         return false;
     }
 
-    current_file_ = utf8Path(chooser.filename());
+    current_file_ = ui::utf8Path(chooser.filename());
     return saveFile();
 }
 
@@ -1595,7 +1037,7 @@ bool MainWindow::applyRegisterEdit(int row, const std::string& text) {
         result = simulator_.setConditionCode(text);
     } else if (row == 12) {
         bool value = false;
-        if (!parseBoolText(text, value)) {
+        if (!ui::parseBoolText(text, value)) {
             setStatus("Invalid HALTED value");
             appendLog("Invalid HALTED value: " + text);
             fl_alert("Invalid HALTED value. Use true/false or 1/0.");
@@ -1692,7 +1134,7 @@ void MainWindow::restyleEditor() {
     if (!editor_buffer_ || !editor_style_buffer_) {
         return;
     }
-    std::string styles = buildAsmStyleText(editorText());
+    std::string styles = ui::buildAsmStyleText(editorText());
     editor_style_buffer_->text(styles.c_str());
     editor_->redisplay_range(0, editor_buffer_->length());
 }

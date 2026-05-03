@@ -50,7 +50,7 @@ build\x64\Release\wlt_helper_cpp.exe --self-test
 - 还没有实际检查完整 GUI 交互流程，例如打开窗口后手工执行“打开示例、汇编、加载、单步、运行到 HALT、设置断点、重置再运行”的课堂演示路径。
 - `config.json` 虽然已有内置默认配置兜底，自检也能在 Release 目录直接通过，但发布策略仍需明确：是否完全依赖内置配置，还是同时随包带上 `LC3/config.json`。
 - 工程链接子系统仍是 `Console`，展示时会额外出现控制台窗口；如果希望像普通桌面程序一样启动，应考虑 Release 改为 `Windows` 子系统并保留调试自检方案。
-- UI 结构目前集中在 `src/main_window.cpp` 单个大文件中，和规格建议的 `src/ui/*` 拆分不同；功能上可接受，但后续维护成本较高。
+- UI 已开始按 `src/ui/*` 拆分；`MainWindow` 仍保留布局和业务协调逻辑，后续如继续维护，可进一步拆分控制器流程和 TRAP 面板。
 - 还未在一台干净 Windows 机器或虚拟机上验证 Release 可执行文件是否真正无需额外运行时。
 
 ## 建议下一步
@@ -58,7 +58,7 @@ build\x64\Release\wlt_helper_cpp.exe --self-test
 1. 按 `dev_spec.md` 第 12 节完整跑一遍课堂演示流程，并记录任何 UI 或状态刷新问题。
 2. 决定 Release 发布形态：是否切换为 Windows 子系统、是否复制或忽略 `config.json`。
 3. 在干净 Windows 环境验证 `build\x64\Release\wlt_helper_cpp.exe` 可直接运行。
-4. 如还有时间，将 `main_window.cpp` 中的表格、文件操作、TRAP 面板等拆分为更小模块，降低最终答辩时解释复杂度。
+4. 如还有时间，继续将 `main_window.cpp` 中的运行控制、TRAP 面板和文件命令拆分为更小模块，降低最终答辩时解释复杂度。
 
 ## 2026-05-03 新增：手动修改状态机状态
 
@@ -81,4 +81,13 @@ build\x64\Release\wlt_helper_cpp.exe --self-test
 
 - 修复双击内存/寄存器表格时总是提示 `Memory cell is not visible` 或 `Register cell is not visible` 的问题。
 - `RegisterTable` 和 `MemoryTable` 现在会在绘制可见单元格时缓存单元格坐标；开始内联编辑时优先使用 FLTK `find_cell`，失败时回退到绘制缓存定位输入框。
+- Release 构建通过，`build\x64\Release\wlt_helper_cpp.exe --self-test` 通过。
+
+## 2026-05-03 重构：GUI 代码模块化拆分
+
+- 新增 `src/ui/asm_highlighter.*`，将 LC-3 汇编源码高亮规则、token 识别和 style buffer 文本生成从 `main_window.cpp` 中拆出。
+- 新增 `src/ui/register_table.*` 和 `src/ui/memory_table.*`，将寄存器表、内存表的绘制、列宽调整、可编辑行判断和可见单元格定位逻辑独立成控件模块。
+- 新增 `src/ui/file_utils.*`，集中处理 UTF-8 文件路径转换、文件读写和布尔文本解析。
+- 保留 `src/main_window.cpp` 负责主窗口布局、FLTK 回调和 LC-3 服务协调；文件体积已从约 63KB 降到约 45KB，后续维护边界更清晰。
+- 更新 Visual Studio 工程文件，加入 `src\ui\*.cpp` 和 `src\ui\*.h`，并在 filters 中增加 UI 分组，方便 VS2022 中浏览。
 - Release 构建通过，`build\x64\Release\wlt_helper_cpp.exe --self-test` 通过。

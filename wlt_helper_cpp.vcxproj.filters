@@ -5,9 +5,15 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
+    <Filter Include="Source Files\UI">
+      <UniqueIdentifier>{C470E2F8-2813-44ED-A9BA-9278B4E7B88E}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Header Files">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Header Files\UI">
+      <UniqueIdentifier>{E66EC36F-4BBA-4589-A7BF-FBA0AB5B0CFD}</UniqueIdentifier>
     </Filter>
     <Filter Include="LC3">
       <UniqueIdentifier>{E8E2E7CB-0F5F-4DA2-B845-41B3CF0A1DC5}</UniqueIdentifier>
@@ -23,6 +29,18 @@
     <ClCompile Include="src\main_window.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\ui\asm_highlighter.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\file_utils.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\memory_table.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\register_table.cpp">
+      <Filter>Source Files\UI</Filter>
+    </ClCompile>
     <ClCompile Include="LC3\lc3_assembler_adapter.cpp">
       <Filter>LC3</Filter>
     </ClCompile>
@@ -33,6 +51,21 @@
   <ItemGroup>
     <ClInclude Include="src\main_window.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\asm_highlighter.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\cell_bounds.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\file_utils.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\memory_table.h">
+      <Filter>Header Files\UI</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ui\register_table.h">
+      <Filter>Header Files\UI</Filter>
     </ClInclude>
     <ClInclude Include="LC3\lc3_gui_adapter.h">
       <Filter>LC3</Filter>
