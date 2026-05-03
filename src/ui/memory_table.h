@@ -18,6 +18,7 @@ public:
     bool cellBounds(int row, int col, int& x, int& y, int& width, int& height);
 
 private:
+    int handle(int event) override;
     void draw_cell(TableContext context, int row, int col, int x, int y, int width, int height) override;
 
     static const char* columnName(int col);

@@ -38,6 +38,32 @@ constexpr int kMemoryRowsAfterPc = 32;
 constexpr int kRunStepsPerTick = 100;
 constexpr double kRunTickSeconds = 0.02;
 
+class WheelIsolatedTextEditor : public Fl_Text_Editor {
+public:
+    using Fl_Text_Editor::Fl_Text_Editor;
+
+    int handle(int event) override {
+        if (event == FL_MOUSEWHEEL) {
+            Fl_Text_Editor::handle(event);
+            return 1;
+        }
+        return Fl_Text_Editor::handle(event);
+    }
+};
+
+class WheelIsolatedTextDisplay : public Fl_Text_Display {
+public:
+    using Fl_Text_Display::Fl_Text_Display;
+
+    int handle(int event) override {
+        if (event == FL_MOUSEWHEEL) {
+            Fl_Text_Display::handle(event);
+            return 1;
+        }
+        return Fl_Text_Display::handle(event);
+    }
+};
+
 } // namespace
 
 MainWindow::MainWindow(int width, int height)
@@ -157,7 +183,7 @@ void MainWindow::buildUi() {
     trap_output_buffer_ = new Fl_Text_Buffer();
     log_buffer_ = new Fl_Text_Buffer();
 
-    editor_ = new Fl_Text_Editor(0, 0, 1, 1);
+    editor_ = new WheelIsolatedTextEditor(0, 0, 1, 1);
     editor_->buffer(editor_buffer_);
     editor_->textfont(FL_COURIER);
     editor_->textsize(14);
@@ -172,7 +198,7 @@ void MainWindow::buildUi() {
                             nullptr);
     editor_buffer_->add_modify_callback(onTextModified, this);
 
-    machine_display_ = new Fl_Text_Display(0, 0, 1, 1);
+    machine_display_ = new WheelIsolatedTextDisplay(0, 0, 1, 1);
     machine_display_->buffer(machine_buffer_);
     machine_display_->textfont(FL_COURIER);
     machine_display_->textsize(14);
@@ -194,13 +220,13 @@ void MainWindow::buildUi() {
     cell_editor_->callback(onCellEditConfirmed, this);
     cell_editor_->hide();
 
-    trap_input_editor_ = new Fl_Text_Editor(0, 0, 1, 1);
+    trap_input_editor_ = new WheelIsolatedTextEditor(0, 0, 1, 1);
     trap_input_editor_->buffer(trap_input_buffer_);
     trap_input_editor_->textfont(FL_COURIER);
     trap_input_editor_->textsize(13);
     trap_input_buffer_->add_modify_callback(onTrapInputModified, this);
 
-    trap_output_display_ = new Fl_Text_Display(0, 0, 1, 1);
+    trap_output_display_ = new WheelIsolatedTextDisplay(0, 0, 1, 1);
     trap_output_display_->buffer(trap_output_buffer_);
     trap_output_display_->textfont(FL_COURIER);
     trap_output_display_->textsize(13);
@@ -208,7 +234,7 @@ void MainWindow::buildUi() {
     clear_trap_output_button_ = new Fl_Button(0, 0, 1, 1, "Clear");
     clear_trap_output_button_->callback(onClearTrapOutput, this);
 
-    log_display_ = new Fl_Text_Display(0, 0, 1, 1);
+    log_display_ = new WheelIsolatedTextDisplay(0, 0, 1, 1);
     log_display_->buffer(log_buffer_);
     log_display_->textfont(FL_COURIER);
     log_display_->textsize(13);

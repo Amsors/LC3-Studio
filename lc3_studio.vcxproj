@@ -15,7 +15,7 @@
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{0E9F841E-A8A0-400F-8CFF-455F3BBE4D5E}</ProjectGuid>
-    <RootNamespace>wlt_helper_cpp</RootNamespace>
+    <RootNamespace>lc3_studio</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
 
@@ -52,6 +52,7 @@
     <FltkRoot>$(ProjectDir)third_party\fltk</FltkRoot>
     <FltkInclude>$(FltkRoot)\include</FltkInclude>
     <FltkLibDir>$(FltkRoot)\lib\$(Configuration)</FltkLibDir>
+    <TargetName>lc3_studio</TargetName>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">

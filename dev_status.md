@@ -24,7 +24,7 @@
 已运行 Release 构建：
 
 ```text
-"C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" wlt_helper_cpp.sln /p:Configuration=Release /p:Platform=x64 /m
+"C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" lc3_studio.sln /p:Configuration=Release /p:Platform=x64 /m
 ```
 
 结果通过：
@@ -34,7 +34,7 @@
 已运行 Release 自检：
 
 ```text
-build\x64\Release\wlt_helper_cpp.exe --self-test
+build\x64\Release\lc3_studio.exe --self-test
 ```
 
 结果通过：
@@ -43,7 +43,7 @@ build\x64\Release\wlt_helper_cpp.exe --self-test
 - 断点运行到 `x3001` 后暂停，单步可继续到 `x3002`。
 - TRAP 输入输出通过，输入 `"A"` 后输出 `"A"`。
 
-也从 `build\x64\Release` 目录直接运行 `.\wlt_helper_cpp.exe --self-test`，结果同样通过。
+也从 `build\x64\Release` 目录直接运行 `.\lc3_studio.exe --self-test`，结果同样通过。
 
 ## 当前主要风险
 
@@ -57,7 +57,7 @@ build\x64\Release\wlt_helper_cpp.exe --self-test
 
 1. 按 `dev_spec.md` 第 12 节完整跑一遍课堂演示流程，并记录任何 UI 或状态刷新问题。
 2. 决定 Release 发布形态：是否切换为 Windows 子系统、是否复制或忽略 `config.json`。
-3. 在干净 Windows 环境验证 `build\x64\Release\wlt_helper_cpp.exe` 可直接运行。
+3. 在干净 Windows 环境验证 `build\x64\Release\lc3_studio.exe` 可直接运行。
 4. 如还有时间，继续将 `main_window.cpp` 中的运行控制、TRAP 面板和文件命令拆分为更小模块，降低最终答辩时解释复杂度。
 
 ## 2026-05-03 新增：手动修改状态机状态
@@ -81,7 +81,7 @@ build\x64\Release\wlt_helper_cpp.exe --self-test
 
 - 修复双击内存/寄存器表格时总是提示 `Memory cell is not visible` 或 `Register cell is not visible` 的问题。
 - `RegisterTable` 和 `MemoryTable` 现在会在绘制可见单元格时缓存单元格坐标；开始内联编辑时优先使用 FLTK `find_cell`，失败时回退到绘制缓存定位输入框。
-- Release 构建通过，`build\x64\Release\wlt_helper_cpp.exe --self-test` 通过。
+- Release 构建通过，`build\x64\Release\lc3_studio.exe --self-test` 通过。
 
 ## 2026-05-03 重构：GUI 代码模块化拆分
 
@@ -90,4 +90,18 @@ build\x64\Release\wlt_helper_cpp.exe --self-test
 - 新增 `src/ui/file_utils.*`，集中处理 UTF-8 文件路径转换、文件读写和布尔文本解析。
 - 保留 `src/main_window.cpp` 负责主窗口布局、FLTK 回调和 LC-3 服务协调；文件体积已从约 63KB 降到约 45KB，后续维护边界更清晰。
 - 更新 Visual Studio 工程文件，加入 `src\ui\*.cpp` 和 `src\ui\*.h`，并在 filters 中增加 UI 分组，方便 VS2022 中浏览。
-- Release 构建通过，`build\x64\Release\wlt_helper_cpp.exe --self-test` 通过。
+- Release 构建通过，`build\x64\Release\lc3_studio.exe --self-test` 通过。
+
+## 2026-05-03 重命名：Visual Studio 项目改为 lc3_studio
+
+- 将解决方案文件从 `wlt_helper_cpp.sln` 重命名为 `lc3_studio.sln`。
+- 将 Visual Studio 工程文件从 `wlt_helper_cpp.vcxproj` / `wlt_helper_cpp.vcxproj.filters` 重命名为 `lc3_studio.vcxproj` / `lc3_studio.vcxproj.filters`。
+- 更新 `.sln` 中显示的项目名、工程路径、`.vcxproj` 的 `RootNamespace`，并显式设置 `TargetName` 为 `lc3_studio`，使 Release/Debug 构建产物输出为 `lc3_studio.exe`。
+- 使用 `lc3_studio.sln` 重新运行 Release 构建通过，`build\x64\Release\lc3_studio.exe --self-test` 通过。
+
+## 2026-05-03 修复：文本区滚轮联动内存表
+
+- 修复在 `ASM Source` 或 `Machine Code` 区域滚动鼠标滚轮时，底部 `Memory` 表格也被同步滚动的问题。
+- `main_window.cpp` 新增滚轮隔离文本控件子类，让 `Fl_Text_Editor` / `Fl_Text_Display` 在处理自身滚轮后消费事件，避免事件继续传递到其他控件。
+- `MemoryTable` 新增滚轮事件边界检查，只有鼠标位于内存表区域内时才响应 `FL_MOUSEWHEEL`。
+- Release 构建通过，`build\x64\Release\lc3_studio.exe --self-test` 通过。

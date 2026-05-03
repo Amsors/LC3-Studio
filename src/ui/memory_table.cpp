@@ -1,6 +1,7 @@
 #include "memory_table.h"
 
 #include <FL/Enumerations.H>
+#include <FL/Fl.H>
 #include <FL/fl_draw.H>
 
 #include <algorithm>
@@ -59,6 +60,13 @@ bool MemoryTable::cellBounds(int row, int col, int& x, int& y, int& width, int& 
         return true;
     }
     return lookupCellBounds(visible_cell_bounds_, row, col, x, y, width, height);
+}
+
+int MemoryTable::handle(int event) {
+    if (event == FL_MOUSEWHEEL && !Fl::event_inside(this)) {
+        return 0;
+    }
+    return Fl_Table_Row::handle(event);
 }
 
 void MemoryTable::draw_cell(TableContext context, int row, int col, int x, int y, int width, int height) {
