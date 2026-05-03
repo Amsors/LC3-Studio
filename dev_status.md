@@ -105,3 +105,16 @@ build\x64\Release\lc3_studio.exe --self-test
 - `main_window.cpp` 新增滚轮隔离文本控件子类，让 `Fl_Text_Editor` / `Fl_Text_Display` 在处理自身滚轮后消费事件，避免事件继续传递到其他控件。
 - `MemoryTable` 新增滚轮事件边界检查，只有鼠标位于内存表区域内时才响应 `FL_MOUSEWHEEL`。
 - Release 构建通过，`build\x64\Release\lc3_studio.exe --self-test` 通过。
+
+## 2026-05-03 新增：Memory 表自动跟随 PC 开关
+
+- `Memory` 标题行右侧新增 `Auto PC scroll` 勾选框，默认开启。
+- 开启时，成功 Load、Step、Run tick、Reset 以及手动修改 PC 后，Memory 表会自动将当前 PC 的行显示在中间靠上的位置，并复位表格内部滚动位置。
+- 关闭时，上述自动跟随不会改变当前 Memory 查看位置，用户可以通过 Jump 或鼠标滚动手动查看其他内存区域。
+- Release 构建通过，`build\x64\Release\lc3_studio.exe --self-test` 通过。
+
+## 2026-05-03 修复：Memory 自动跟随 PC 的可见位置计算
+
+- 修复自动跟随时仅滚动到 Memory 窗口第 0 行、导致较矮窗口下 PC 行仍不可见的问题。
+- `MemoryTable` 新增按当前控件高度和行高计算可见行数的逻辑，自动跟随时会把 PC 地址所在行滚动到当前可见区域的中间靠上位置。
+- 该计算使用 FLTK 控件实际布局尺寸，不依赖固定屏幕分辨率，适配不同窗口大小和 DPI 缩放。

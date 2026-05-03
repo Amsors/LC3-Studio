@@ -9,6 +9,7 @@
 #include <FL/Fl.H>
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Button.H>
+#include <FL/Fl_Check_Button.H>
 #include <FL/Fl_Input.H>
 #include <FL/Fl_Menu_Bar.H>
 #include <FL/Fl_Native_File_Chooser.H>
@@ -151,6 +152,9 @@ void MainWindow::buildUi() {
     machine_label_ = new Fl_Box(0, 0, 1, 1, "Machine Code");
     register_label_ = new Fl_Box(0, 0, 1, 1, "Registers");
     memory_label_ = new Fl_Box(0, 0, 1, 1, "Memory");
+    auto_memory_scroll_check_ = new Fl_Check_Button(0, 0, 1, 1, "Auto PC scroll");
+    auto_memory_scroll_check_->value(1);
+    auto_memory_scroll_check_->callback(onAutoMemoryScrollChanged, this);
     trap_input_label_ = new Fl_Box(0, 0, 1, 1, "TRAP Input Buffer");
     trap_output_label_ = new Fl_Box(0, 0, 1, 1, "TRAP Output");
     trap_remaining_label_ = new Fl_Box(0, 0, 1, 1, "Remaining: 0");
@@ -162,6 +166,7 @@ void MainWindow::buildUi() {
     machine_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     register_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     memory_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+    auto_memory_scroll_check_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
     trap_input_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     trap_output_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     trap_remaining_label_->align(FL_ALIGN_RIGHT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
@@ -344,7 +349,11 @@ void MainWindow::layoutChildren(int width, int height) {
                             std::max(1, top_h - kLabelHeight));
     register_table_->fitColumns(register_w);
 
-    memory_label_->resize(content_x, memory_y, content_w, kLabelHeight);
+    int auto_scroll_w = std::min(148, std::max(112, content_w / 6));
+    memory_label_->resize(content_x, memory_y, std::max(1, content_w - auto_scroll_w - kGap),
+                          kLabelHeight);
+    auto_memory_scroll_check_->resize(content_x + std::max(0, content_w - auto_scroll_w),
+                                      memory_y + 1, auto_scroll_w, std::max(1, kLabelHeight - 2));
     memory_table_->resize(content_x, memory_y + kLabelHeight, content_w,
                           std::max(1, memory_h - kLabelHeight));
     memory_table_->fitColumns(content_w);
@@ -423,6 +432,11 @@ void MainWindow::onReset(Fl_Widget*, void* data) {
 
 void MainWindow::onJumpMemory(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->jumpMemory();
+}
+
+void MainWindow::onAutoMemoryScrollChanged(Fl_Widget* widget, void* data) {
+    auto* check = static_cast<Fl_Check_Button*>(widget);
+    static_cast<MainWindow*>(data)->setAutoMemoryScroll(check->value() != 0);
 }
 
 void MainWindow::onAddBreakpoint(Fl_Widget*, void* data) {
@@ -654,7 +668,7 @@ void MainWindow::assembleAndLoad() {
     state_modified_ = false;
     state_modified_label_->copy_label("");
     lc3::RegisterView registers = simulator_.registers();
-    memory_center_ = registers.pc;
+    autoScrollMemoryToPc(registers);
     refreshSimulatorViews();
     appendLog("Loaded program at " + lc3::formatHexWord(registers.loaded_start) +
               " (" + std::to_string(registers.loaded_words) + " word(s))");
@@ -740,7 +754,7 @@ void MainWindow::runTimerTick() {
     }
 
     lc3::RegisterView registers = simulator_.registers();
-    memory_center_ = registers.pc;
+    autoScrollMemoryToPc(registers);
     refreshSimulatorViews();
 
     if (!should_continue) {
@@ -768,7 +782,9 @@ void MainWindow::stepOnce() {
 
     lc3::OperationResult result = simulator_.stepOnce();
     lc3::RegisterView registers = simulator_.registers();
-    memory_center_ = registers.pc;
+    if (result.ok) {
+        autoScrollMemoryToPc(registers);
+    }
     refreshSimulatorViews();
 
     if (!result.ok) {
@@ -798,7 +814,7 @@ void MainWindow::resetProgram() {
     program_loaded_ = registers.loaded_words > 0;
     state_modified_ = false;
     state_modified_label_->copy_label("");
-    memory_center_ = registers.pc;
+    autoScrollMemoryToPc(registers);
     refreshSimulatorViews();
     appendLog(program_loaded_ ? "Program reset" : "Machine cleared");
     setStatus(program_loaded_ ? "Program reset" : "Machine cleared");
@@ -815,6 +831,21 @@ void MainWindow::jumpMemory() {
     memory_center_ = address & 0xFFFF;
     refreshMemoryView();
     setStatus("Memory centered at " + lc3::formatHexWord(memory_center_));
+}
+
+void MainWindow::setAutoMemoryScroll(bool enabled) {
+    auto_memory_scroll_enabled_ = enabled;
+    if (auto_memory_scroll_check_ && auto_memory_scroll_check_->value() != (enabled ? 1 : 0)) {
+        auto_memory_scroll_check_->value(enabled ? 1 : 0);
+    }
+
+    if (enabled) {
+        autoScrollMemoryToPc(simulator_.registers());
+        refreshMemoryView();
+        setStatus("Auto PC memory scroll enabled");
+    } else {
+        setStatus("Auto PC memory scroll disabled");
+    }
 }
 
 void MainWindow::addBreakpoint() {
@@ -1047,8 +1078,7 @@ bool MainWindow::applyRegisterEdit(int row, const std::string& text) {
         }
         result = simulator_.setPC(value);
         if (result.ok) {
-            memory_center_ = value & 0xFFFF;
-            memory_jump_input_->value(lc3::formatHexWord(memory_center_).c_str());
+            autoScrollMemoryToPc(simulator_.registers());
         }
     } else if (row == 9) {
         int value = 0;
@@ -1229,8 +1259,23 @@ void MainWindow::refreshRegisterView(const lc3::RegisterView& registers) {
     register_table_->setRegisters(registers);
 }
 
-void MainWindow::refreshMemoryView() {
+void MainWindow::refreshMemoryView(bool reset_scroll) {
     memory_table_->setRows(simulator_.memoryWindow(memory_center_, kMemoryRowsBeforePc, kMemoryRowsAfterPc));
+    if (reset_scroll || reset_memory_scroll_on_next_refresh_) {
+        memory_table_->scrollAddressNearUpperMiddle(memory_center_);
+        reset_memory_scroll_on_next_refresh_ = false;
+    }
+}
+
+void MainWindow::autoScrollMemoryToPc(const lc3::RegisterView& registers) {
+    if (!auto_memory_scroll_enabled_) {
+        return;
+    }
+    memory_center_ = registers.pc & 0xFFFF;
+    if (memory_jump_input_) {
+        memory_jump_input_->value(lc3::formatHexWord(memory_center_).c_str());
+    }
+    reset_memory_scroll_on_next_refresh_ = true;
 }
 
 void MainWindow::refreshTrapViews() {

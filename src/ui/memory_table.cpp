@@ -23,6 +23,7 @@ MemoryTable::MemoryTable(int x, int y, int width, int height)
 void MemoryTable::setRows(const std::vector<lc3::MemoryRow>& memory_rows) {
     rows_ = memory_rows;
     Fl_Table_Row::rows(static_cast<int>(rows_.size()));
+    row_height_all(22);
     visible_cell_bounds_.clear();
     redraw();
 }
@@ -60,6 +61,19 @@ bool MemoryTable::cellBounds(int row, int col, int& x, int& y, int& width, int& 
         return true;
     }
     return lookupCellBounds(visible_cell_bounds_, row, col, x, y, width, height);
+}
+
+bool MemoryTable::scrollAddressNearUpperMiddle(int address) {
+    int row = rowIndexForAddress(address);
+    if (row < 0) {
+        return false;
+    }
+
+    int visible_rows = visibleRowCapacity();
+    int desired_offset = std::max(1, visible_rows / 3);
+    int top_row = std::max(0, row - desired_offset);
+    row_position(top_row);
+    return true;
 }
 
 int MemoryTable::handle(int event) {
@@ -135,4 +149,27 @@ std::string MemoryTable::valueText(const lc3::MemoryRow& memory, int col) {
         case 3: return lc3::formatBinaryWord(memory.value);
         default: return "";
     }
+}
+
+int MemoryTable::rowIndexForAddress(int address) const {
+    address &= 0xFFFF;
+    for (int row = 0; row < static_cast<int>(rows_.size()); row++) {
+        if ((rows_[static_cast<std::size_t>(row)].address & 0xFFFF) == address) {
+            return row;
+        }
+    }
+    return -1;
+}
+
+int MemoryTable::visibleRowCapacity() {
+    if (rows_.empty()) {
+        return 1;
+    }
+
+    int row_height_px = std::max(1, row_height(0));
+    int body_height = h() - col_header_height();
+    if (body_height <= 0) {
+        return 1;
+    }
+    return std::max(1, body_height / row_height_px);
 }

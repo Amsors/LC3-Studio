@@ -16,6 +16,7 @@ public:
     bool addressAtRow(int row, int& address) const;
     bool valueAtRow(int row, int& value) const;
     bool cellBounds(int row, int col, int& x, int& y, int& width, int& height);
+    bool scrollAddressNearUpperMiddle(int address);
 
 private:
     int handle(int event) override;
@@ -25,6 +26,8 @@ private:
     static void drawHeaderCell(const char* text, int x, int y, int width, int height);
     void drawValueCell(int row, int col, int x, int y, int width, int height) const;
     static std::string valueText(const lc3::MemoryRow& memory, int col);
+    int rowIndexForAddress(int address) const;
+    int visibleRowCapacity();
 
     std::vector<lc3::MemoryRow> rows_;
     std::vector<CellBounds> visible_cell_bounds_;

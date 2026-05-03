@@ -10,6 +10,7 @@
 
 class Fl_Box;
 class Fl_Button;
+class Fl_Check_Button;
 class Fl_Input;
 class Fl_Menu_Bar;
 class Fl_Text_Buffer;
@@ -38,6 +39,7 @@ private:
     static void onStep(Fl_Widget* widget, void* data);
     static void onReset(Fl_Widget* widget, void* data);
     static void onJumpMemory(Fl_Widget* widget, void* data);
+    static void onAutoMemoryScrollChanged(Fl_Widget* widget, void* data);
     static void onAddBreakpoint(Fl_Widget* widget, void* data);
     static void onRemoveBreakpoint(Fl_Widget* widget, void* data);
     static void onClearBreakpoints(Fl_Widget* widget, void* data);
@@ -69,6 +71,7 @@ private:
     void stepOnce();
     void resetProgram();
     void jumpMemory();
+    void setAutoMemoryScroll(bool enabled);
     void addBreakpoint();
     void removeBreakpoint();
     void clearBreakpoints();
@@ -96,7 +99,8 @@ private:
     void updateTrapInputBuffer();
     void refreshSimulatorViews();
     void refreshRegisterView(const lc3::RegisterView& registers);
-    void refreshMemoryView();
+    void refreshMemoryView(bool reset_scroll = false);
+    void autoScrollMemoryToPc(const lc3::RegisterView& registers);
     void refreshTrapViews();
     void updateControlStates(const lc3::RegisterView& registers);
     void updateTitle();
@@ -119,6 +123,7 @@ private:
     Fl_Button* step_button_ = nullptr;
     Fl_Button* reset_button_ = nullptr;
     Fl_Button* jump_button_ = nullptr;
+    Fl_Check_Button* auto_memory_scroll_check_ = nullptr;
     Fl_Button* add_breakpoint_button_ = nullptr;
     Fl_Button* remove_breakpoint_button_ = nullptr;
     Fl_Button* clear_breakpoints_button_ = nullptr;
@@ -160,6 +165,8 @@ private:
     bool dirty_ = false;
     bool programmatic_edit_ = false;
     bool run_timer_active_ = false;
+    bool auto_memory_scroll_enabled_ = true;
+    bool reset_memory_scroll_on_next_refresh_ = false;
     bool state_modified_ = false;
     int cell_edit_kind_ = 0;
     int cell_edit_row_ = -1;
