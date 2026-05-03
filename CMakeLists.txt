@@ -9,6 +9,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(FLTK_LINUX_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fltk-linux")
+set(LC3_EXAMPLES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/examples")
+file(GLOB LC3_EXAMPLE_FILES CONFIGURE_DEPENDS "${LC3_EXAMPLES_DIR}/*.asm")
+set(LC3_EMBEDDED_EXAMPLES_CPP "${CMAKE_BINARY_DIR}/generated/embedded_examples.cpp")
 
 if(NOT EXISTS "${FLTK_LINUX_ROOT}/share/fltk/FLTKConfig.cmake")
     message(FATAL_ERROR
@@ -21,7 +24,20 @@ find_package(FLTK CONFIG REQUIRED
     NO_DEFAULT_PATH
 )
 
-set(LC3_STUDIO_SOURCES
+add_custom_command(
+    OUTPUT "${LC3_EMBEDDED_EXAMPLES_CPP}"
+    COMMAND "${CMAKE_COMMAND}"
+        "-DEXAMPLES_DIR=${LC3_EXAMPLES_DIR}"
+        "-DOUTPUT=${LC3_EMBEDDED_EXAMPLES_CPP}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_examples.cmake"
+    DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/tools/embed_examples.cmake"
+        ${LC3_EXAMPLE_FILES}
+    COMMENT "Embedding LC-3 example programs"
+    VERBATIM
+)
+
+set(LC3_STUDIO_SOURCE_FILES
     src/main.cpp
     src/main_window.cpp
     src/ui/asm_highlighter.cpp
@@ -32,7 +48,13 @@ set(LC3_STUDIO_SOURCES
     LC3/lc3_simulator_adapter.cpp
 )
 
+set(LC3_STUDIO_SOURCES
+    ${LC3_STUDIO_SOURCE_FILES}
+    "${LC3_EMBEDDED_EXAMPLES_CPP}"
+)
+
 set(LC3_STUDIO_HEADERS
+    src/embedded_examples.h
     src/main_window.h
     src/ui/asm_highlighter.h
     src/ui/cell_bounds.h
@@ -57,9 +79,10 @@ set_target_properties(lc3_studio PROPERTIES
 )
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES
-    ${LC3_STUDIO_SOURCES}
+    ${LC3_STUDIO_SOURCE_FILES}
     ${LC3_STUDIO_HEADERS}
 )
+source_group("Generated" FILES "${LC3_EMBEDDED_EXAMPLES_CPP}")
 
 message(STATUS "Configured Linux/CLion build for lc3_studio")
 message(STATUS "Using prebuilt FLTK from ${FLTK_LINUX_ROOT}")

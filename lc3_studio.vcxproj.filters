@@ -21,6 +21,12 @@
     <Filter Include="Examples">
       <UniqueIdentifier>{23A29A10-D6AB-49EC-8E26-44D94878305C}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Tools">
+      <UniqueIdentifier>{C67D2EB4-C6D3-49EC-B39C-3029C5995C29}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Generated">
+      <UniqueIdentifier>{67816EEF-1155-4B54-A43C-94263737686B}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -41,6 +47,9 @@
     <ClCompile Include="src\ui\register_table.cpp">
       <Filter>Source Files\UI</Filter>
     </ClCompile>
+    <ClCompile Include="$(IntDir)generated\embedded_examples.cpp">
+      <Filter>Generated</Filter>
+    </ClCompile>
     <ClCompile Include="LC3\lc3_assembler_adapter.cpp">
       <Filter>LC3</Filter>
     </ClCompile>
@@ -50,6 +59,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\main_window.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\embedded_examples.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\ui\asm_highlighter.h">
@@ -75,8 +87,14 @@
     <None Include="LC3\config.json">
       <Filter>LC3</Filter>
     </None>
-    <None Include="examples\lc3_gui_demo.asm">
+    <None Include="examples\*.asm">
       <Filter>Examples</Filter>
+    </None>
+    <None Include="tools\embed_examples.ps1">
+      <Filter>Tools</Filter>
+    </None>
+    <None Include="tools\embed_examples.cmake">
+      <Filter>Tools</Filter>
     </None>
   </ItemGroup>
 </Project>

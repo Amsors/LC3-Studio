@@ -1,5 +1,6 @@
 #include "main_window.h"
 
+#include "embedded_examples.h"
 #include "ui/asm_highlighter.h"
 #include "ui/file_utils.h"
 #include "ui/memory_table.h"
@@ -251,12 +252,27 @@ public:
     }
 };
 
+std::string exampleMenuTitle(const embedded_examples::AssemblyExample& example) {
+    std::string title = example.title && *example.title ? example.title : example.id;
+    if (title.empty()) {
+        title = "Example";
+    }
+    std::replace(title.begin(), title.end(), '/', '-');
+    return title;
+}
+
 } // namespace
 
 MainWindow::MainWindow(int width, int height)
     : Fl_Double_Window(width, height, "LC-3 Assembly Studio") {
     buildUi();
-    setEditorText(defaultSource());
+    const embedded_examples::AssemblyExample* startup_example = embedded_examples::exampleAt(0);
+    if (startup_example) {
+        setEditorText(startup_example->source ? startup_example->source : "");
+        current_example_title_ = startup_example->title ? startup_example->title : "";
+    } else {
+        setEditorText(defaultSource());
+    }
     dirty_ = false;
     updateTitle();
     refreshSimulatorViews();
@@ -295,7 +311,19 @@ void MainWindow::resize(int x, int y, int width, int height) {
 void MainWindow::buildUi() {
     menu_ = new Fl_Menu_Bar(0, 0, w(), kMenuHeight);
     menu_->add("&File/&Open...\tCtrl+O", FL_CTRL + 'o', onOpen, this);
-    menu_->add("&File/Open &Demo Program", 0, onOpenDemo, this);
+    if (embedded_examples::exampleCount() == 0) {
+        menu_->add("&File/Open &Example/(no embedded examples)", 0, nullptr, nullptr, FL_MENU_INACTIVE);
+    } else {
+        for (std::size_t i = 0; i < embedded_examples::exampleCount(); i++) {
+            const embedded_examples::AssemblyExample* example = embedded_examples::exampleAt(i);
+            if (!example) {
+                continue;
+            }
+            std::string path = "&File/Open &Example/" + exampleMenuTitle(*example);
+            menu_->add(path.c_str(), 0, onOpenExample,
+                       const_cast<embedded_examples::AssemblyExample*>(example));
+        }
+    }
     menu_->add("&File/&Save\tCtrl+S", FL_CTRL + 's', onSave, this);
     menu_->add("&File/Save &As...", 0, onSaveAs, this);
     menu_->add("&File/E&xit", 0, onExit, this);
@@ -665,8 +693,14 @@ void MainWindow::onCoreSelfTest(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->runCoreSelfTest();
 }
 
-void MainWindow::onOpenDemo(Fl_Widget*, void* data) {
-    static_cast<MainWindow*>(data)->openDemoProgram();
+void MainWindow::onOpenExample(Fl_Widget* widget, void* data) {
+    auto* example = static_cast<const embedded_examples::AssemblyExample*>(data);
+    if (!widget || !example) {
+        return;
+    }
+
+    auto* self = static_cast<MainWindow*>(widget->window());
+    self->openExampleProgram(*example);
 }
 
 void MainWindow::onCellEditConfirmed(Fl_Widget*, void* data) {
@@ -758,6 +792,7 @@ void MainWindow::openFile() {
     try {
         setEditorText(ui::readFile(path));
         current_file_ = path;
+        current_example_title_.clear();
         dirty_ = false;
         machine_buffer_->text("");
         latest_machine_code_.clear();
@@ -788,6 +823,7 @@ bool MainWindow::saveFile() {
     try {
         ui::writeFile(current_file_, editorText());
         dirty_ = false;
+        current_example_title_.clear();
         appendLog("Saved " + fileDisplayName(current_file_));
         setStatus("Saved " + fileDisplayName(current_file_));
         updateTitle();
@@ -817,6 +853,7 @@ bool MainWindow::saveFileAs() {
     }
 
     current_file_ = ui::utf8Path(chooser.filename());
+    current_example_title_.clear();
     return saveFile();
 }
 
@@ -1155,7 +1192,7 @@ void MainWindow::runCoreSelfTest() {
     setStatus("Core self test OK");
 }
 
-void MainWindow::openDemoProgram() {
+void MainWindow::openExampleProgram(const embedded_examples::AssemblyExample& example) {
     stopRunTimer();
     if (dirty_) {
         int choice = fl_choice("The current source has unsaved changes.", "Cancel", "Discard", "Save");
@@ -1163,8 +1200,10 @@ void MainWindow::openDemoProgram() {
         if (choice == 2 && !saveFile()) return;
     }
 
-    setEditorText(defaultSource());
+    std::string title = example.title && *example.title ? example.title : exampleMenuTitle(example);
+    setEditorText(example.source ? example.source : "");
     current_file_.clear();
+    current_example_title_ = title;
     dirty_ = false;
     machine_buffer_->text("");
     latest_machine_code_.clear();
@@ -1178,8 +1217,11 @@ void MainWindow::openDemoProgram() {
     simulator_.clearMachine();
     simulator_.clearBreakpoints();
     refreshSimulatorViews();
-    appendLog("Loaded demo program");
-    setStatus("Demo program loaded; x3003 is ready for breakpoint demo");
+    appendLog("Loaded example: " + title);
+    if (example.description && *example.description) {
+        appendLog(std::string("Example note: ") + example.description);
+    }
+    setStatus("Example loaded: " + title);
     updateTitle();
 }
 
@@ -1532,6 +1574,8 @@ void MainWindow::updateTitle() {
     std::string title = "LC-3 Assembly Studio";
     if (!current_file_.empty()) {
         title += " - " + fileDisplayName(current_file_);
+    } else if (!current_example_title_.empty()) {
+        title += " - " + current_example_title_;
     }
     if (dirty_) {
         title += " *";
@@ -1555,14 +1599,12 @@ void MainWindow::applyMemorySources(std::vector<lc3::MemoryRow>& rows) const {
 }
 
 std::string MainWindow::defaultSource() {
+    const embedded_examples::AssemblyExample* example = embedded_examples::exampleAt(0);
+    if (example && example->source) {
+        return example->source;
+    }
     return ".orig x3000\n"
-           "        and r0, r0, #0\n"
-           "        add r0, r0, #5\n"
-           "        add r1, r0, #3\n"
-           "        lea r0, msg\n"
-           "        puts\n"
            "        halt\n"
-           "msg     .stringz \"LC-3 GUI OK\\n\"\n"
            ".end\n";
 }
 

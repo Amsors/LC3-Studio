@@ -2,8 +2,10 @@
 
 #include <FL/Fl.H>
 
+#include "embedded_examples.h"
 #include "LC3/lc3_gui_adapter.h"
 
+#include <cstddef>
 #include <iostream>
 #include <string>
 
@@ -35,6 +37,32 @@ std::string sourceMetadataSelfTestSource() {
 
 int runSelfTest() {
     lc3::AssemblerService assembler;
+
+    if (embedded_examples::exampleCount() < 2) {
+        std::cerr << "Embedded examples self test failed: expected multiple examples, got "
+                  << embedded_examples::exampleCount() << "\n";
+        return 1;
+    }
+
+    for (std::size_t i = 0; i < embedded_examples::exampleCount(); i++) {
+        const embedded_examples::AssemblyExample* example = embedded_examples::exampleAt(i);
+        if (!example || !example->source || std::string(example->source).empty()) {
+            std::cerr << "Embedded examples self test failed: empty example at index "
+                      << i << "\n";
+            return 1;
+        }
+        lc3::AssembleResult example_assembled = assembler.assembleSource(example->source);
+        if (!example_assembled.ok) {
+            std::cerr << "Embedded example failed to assemble: "
+                      << (example->title ? example->title : example->id)
+                      << ": " << example_assembled.error_message << "\n";
+            return 1;
+        }
+    }
+
+    std::cout << "Embedded examples self test OK: count="
+              << embedded_examples::exampleCount() << "\n";
+
     lc3::AssembleResult assembled = assembler.assembleSource(selfTestSource());
     if (!assembled.ok) {
         std::cerr << "Assembly failed: " << assembled.error_message << "\n";

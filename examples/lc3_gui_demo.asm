@@ -1,3 +1,5 @@
+; name: GUI demo output
+; description: Prints a short message and gives a useful breakpoint at x3003.
 .orig x3000
         and r0, r0, #0
         add r0, r0, #5

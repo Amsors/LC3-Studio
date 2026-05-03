@@ -116,6 +116,7 @@
   <ItemGroup>
     <ClCompile Include="src\*.cpp" />
     <ClCompile Include="src\ui\*.cpp" />
+    <ClCompile Include="$(IntDir)generated\embedded_examples.cpp" />
     <ClCompile Include="LC3\lc3_assembler_adapter.cpp" />
     <ClCompile Include="LC3\lc3_simulator_adapter.cpp" />
   </ItemGroup>
@@ -128,9 +129,15 @@
 
   <ItemGroup>
     <None Include="LC3\config.json" />
-    <None Include="examples\lc3_gui_demo.asm" />
+    <None Include="examples\*.asm" />
+    <None Include="tools\embed_examples.ps1" />
+    <None Include="tools\embed_examples.cmake" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="GenerateEmbeddedExamples" BeforeTargets="ClCompile">
+    <MakeDir Directories="$(IntDir)generated" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(ProjectDir)tools\embed_examples.ps1&quot; -ExamplesDir &quot;$(ProjectDir)examples&quot; -Output &quot;$(IntDir)generated\embedded_examples.cpp&quot;" />
+  </Target>
   <ImportGroup Label="ExtensionTargets" />
 </Project>

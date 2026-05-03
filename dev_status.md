@@ -163,3 +163,14 @@ build\x64\Release\lc3_studio.exe --self-test
 - `.stringz` 产生的多个内存 word 会显示同一条 `.stringz` 源语句，便于课堂展示字符串数据在内存中的展开位置。
 - `--self-test` 新增来源元数据检查，覆盖 `.fill`、`.stringz` 和指令来源。
 - Linux 构建通过，`./build/bin/lc3_studio --self-test` 通过，`xvfb-run -a ./build/bin/lc3_studio --gui-close-test` 通过。
+
+## 2026-05-03 新增：构建期内嵌多个示例程序
+
+- 新增构建期示例嵌入机制：示例程序继续以 `examples/*.asm` 文件维护，构建时读取这些文件并生成内嵌到可执行文件中的 `embedded_examples.cpp`，运行时不依赖外部示例文件。
+- Windows Visual Studio 工程新增 `tools/embed_examples.ps1` 生成步骤，在 `$(IntDir)\generated\embedded_examples.cpp` 中生成内嵌示例；Linux/CLion CMake 构建新增 `tools/embed_examples.cmake` 生成同等源文件。
+- 新增 `src/embedded_examples.h` 作为 GUI 访问内嵌示例的统一接口。
+- `File` 菜单中的单个 `Open Demo Program` 改为 `Open Example` 子菜单，启动后用户可以选择加载任意内嵌示例；窗口标题会显示当前示例名。
+- 新增示例 `examples/sum_1_to_5.asm` 和 `examples/trap_echo.asm`，并为现有 `examples/lc3_gui_demo.asm` 增加示例名称和说明注释。
+- `--self-test` 新增内嵌示例检查，会确认至少存在多个示例，并逐个调用汇编器验证示例源码有效。
+- Linux 构建通过，`./build/bin/lc3_studio --self-test` 通过，输出确认 `Embedded examples self test OK: count=3`。
+- 本次尝试运行 `xvfb-run -a ./build/bin/lc3_studio --gui-close-test` 时当前环境无法打开虚拟显示，未完成 GUI 关闭路径复测。

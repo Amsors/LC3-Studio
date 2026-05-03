@@ -20,6 +20,10 @@ class Fl_Widget;
 class MemoryTable;
 class RegisterTable;
 
+namespace embedded_examples {
+struct AssemblyExample;
+}
+
 class MainWindow : public Fl_Double_Window {
 public:
     MainWindow(int width, int height);
@@ -46,7 +50,7 @@ private:
     static void onClearBreakpoints(Fl_Widget* widget, void* data);
     static void onClearTrapOutput(Fl_Widget* widget, void* data);
     static void onCoreSelfTest(Fl_Widget* widget, void* data);
-    static void onOpenDemo(Fl_Widget* widget, void* data);
+    static void onOpenExample(Fl_Widget* widget, void* data);
     static void onRegisterTableEvent(Fl_Widget* widget, void* data);
     static void onMemoryTableEvent(Fl_Widget* widget, void* data);
     static void onCellEditConfirmed(Fl_Widget* widget, void* data);
@@ -80,7 +84,7 @@ private:
     void toggleBreakpointAtAddress(int address);
     void clearTrapOutput();
     void runCoreSelfTest();
-    void openDemoProgram();
+    void openExampleProgram(const embedded_examples::AssemblyExample& example);
     void requestClose();
     void beginRegisterEdit(int row);
     void beginMemoryEdit(int row, int col);
@@ -163,6 +167,7 @@ private:
     Fl_Text_Buffer* log_buffer_ = nullptr;
 
     std::filesystem::path current_file_;
+    std::string current_example_title_;
     std::string latest_machine_code_;
     std::vector<std::string> latest_word_sources_;
     int memory_center_ = 0x3000;
