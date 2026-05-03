@@ -1,0 +1,66 @@
+cmake_minimum_required(VERSION 3.21)
+
+project(lc3_studio_linux LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set(FLTK_LINUX_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fltk-linux")
+
+if(NOT EXISTS "${FLTK_LINUX_ROOT}/share/fltk/FLTKConfig.cmake")
+    message(FATAL_ERROR
+        "Missing prebuilt FLTK package at ${FLTK_LINUX_ROOT}.\n"
+        "Expected an installed FLTK 1.4.x tree under third_party/fltk-linux.")
+endif()
+
+find_package(FLTK CONFIG REQUIRED
+    PATHS "${FLTK_LINUX_ROOT}/share/fltk"
+    NO_DEFAULT_PATH
+)
+
+set(LC3_STUDIO_SOURCES
+    src/main.cpp
+    src/main_window.cpp
+    src/ui/asm_highlighter.cpp
+    src/ui/file_utils.cpp
+    src/ui/memory_table.cpp
+    src/ui/register_table.cpp
+    LC3/lc3_assembler_adapter.cpp
+    LC3/lc3_simulator_adapter.cpp
+)
+
+set(LC3_STUDIO_HEADERS
+    src/main_window.h
+    src/ui/asm_highlighter.h
+    src/ui/cell_bounds.h
+    src/ui/file_utils.h
+    src/ui/memory_table.h
+    src/ui/register_table.h
+    LC3/lc3_gui_adapter.h
+)
+
+add_executable(lc3_studio ${LC3_STUDIO_SOURCES} ${LC3_STUDIO_HEADERS})
+
+target_include_directories(lc3_studio PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+
+target_link_libraries(lc3_studio PRIVATE fltk::images)
+
+target_compile_options(lc3_studio PRIVATE
+    $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall -Wextra -Wpedantic>
+)
+
+set_target_properties(lc3_studio PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES
+    ${LC3_STUDIO_SOURCES}
+    ${LC3_STUDIO_HEADERS}
+)
+
+message(STATUS "Configured Linux/CLion build for lc3_studio")
+message(STATUS "Using prebuilt FLTK from ${FLTK_LINUX_ROOT}")
+message(STATUS "Windows Visual Studio workflow remains in lc3_studio.sln / lc3_studio.vcxproj")

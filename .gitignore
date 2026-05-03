@@ -17,3 +17,6 @@ build/
 *.pdb
 *.idb
 *.exp
+
+.idea/
+cmake-build-debug/

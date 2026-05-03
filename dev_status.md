@@ -60,6 +60,13 @@ build\x64\Release\lc3_studio.exe --self-test
 3. 在干净 Windows 环境验证 `build\x64\Release\lc3_studio.exe` 可直接运行。
 4. 如还有时间，继续将 `main_window.cpp` 中的运行控制、TRAP 面板和文件命令拆分为更小模块，降低最终答辩时解释复杂度。
 
+## 2026-05-03 新增：Linux / CLion 构建入口
+
+- 新增仓库根 `CMakeLists.txt`，作为 Ubuntu 上 JetBrains CLion 的独立构建入口，不改动现有 `lc3_studio.sln` / `lc3_studio.vcxproj`。
+- 已将 FLTK 1.4.5 编译并安装到 `third_party/fltk-linux`，Linux 构建现在直接链接这套本地静态库和头文件，不再依赖源码目录。
+- 根 `CMakeLists.txt` 改为通过 `find_package(FLTK CONFIG ...)` 从 `third_party/fltk-linux/share/fltk` 读取已安装包，避免 CLion 每次重新编译 FLTK 本体。
+- 新增 `CLION_LINUX.md`，记录 Ubuntu 依赖、CLion 打开方式、终端构建命令和 `--self-test` 调试方法。
+
 ## 2026-05-03 新增：手动修改状态机状态
 
 - 新增 Load 后/单步暂停时手动修改 LC-3 状态的能力。
