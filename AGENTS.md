@@ -5,3 +5,9 @@
 我是用visual studio 2022进行开发和调试
 
 LC-3汇编器和模拟器的代码在LC3文件夹中
+
+开发的技术文档写在dev_spec.md中，你需要进行读取
+
+开发进展写在dev_status.md中，你也需要读取，对代码作出的新改动也记录在这个文件中
+
+**注意！！！！**读取项目中的文本文件，尤其是包含中文的文档或代码时，需要显式指定 UTF-8 编码，例如 PowerShell 中使用 `Get-Content -Encoding UTF8`
