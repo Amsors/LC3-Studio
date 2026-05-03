@@ -158,11 +158,28 @@ int runSelfTest() {
     return 0;
 }
 
+void closeWindowForGuiCloseTest(void* data) {
+    static_cast<MainWindow*>(data)->hide();
+}
+
+int runGuiCloseTest(int, char** argv) {
+    Fl::scheme("gtk+");
+
+    MainWindow window(1180, 760);
+    Fl::add_timeout(0.05, closeWindowForGuiCloseTest, &window);
+    int fltk_argc = 1;
+    window.show(fltk_argc, argv);
+    return Fl::run();
+}
+
 } // namespace
 
 int main(int argc, char** argv) {
     if (argc > 1 && std::string(argv[1]) == "--self-test") {
         return runSelfTest();
+    }
+    if (argc > 1 && std::string(argv[1]) == "--gui-close-test") {
+        return runGuiCloseTest(argc, argv);
     }
 
     Fl::scheme("gtk+");

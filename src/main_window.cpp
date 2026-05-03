@@ -267,6 +267,17 @@ MainWindow::MainWindow(int width, int height)
 
 MainWindow::~MainWindow() {
     stopRunTimer();
+    cancelCellEdit();
+
+    if (editor_buffer_) {
+        editor_buffer_->remove_modify_callback(onTextModified, this);
+    }
+    if (trap_input_buffer_) {
+        trap_input_buffer_->remove_modify_callback(onTrapInputModified, this);
+    }
+
+    clear();
+
     delete editor_buffer_;
     delete editor_style_buffer_;
     delete machine_buffer_;

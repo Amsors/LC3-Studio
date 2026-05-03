@@ -146,3 +146,11 @@ build\x64\Release\lc3_studio.exe --self-test
 
 - 在 Memory 地址跳转控件旁新增 `To PC` 按钮。
 - 点击后会读取当前 LC-3 PC，更新地址输入栏为 PC 地址，并将 Memory 表跳转到该位置。
+
+## 2026-05-03 修复：关闭窗口时 Text Buffer 回调注销错误
+
+- 修复点击窗口关闭按钮退出时出现 `Fl_Text_Buffer::remove_modify_callback(): Can't find modify CB to remove`、`remove_predelete_callback` 以及后续堆损坏的问题。
+- `MainWindow` 析构时现在先停止运行定时器、取消内联编辑并移除自身注册的文本修改回调，然后调用 `clear()` 让 FLTK 文本控件先注销它们内部持有的 `Fl_Text_Buffer` 回调，最后再释放各个 text buffer。
+- 问题原因是旧析构顺序先释放了 `Fl_Text_Buffer`，而窗口子控件仍持有这些 buffer；随后 FLTK 删除文本控件时会再次访问已释放的 buffer 来注销回调。
+- 新增 `--gui-close-test` 隐藏测试入口，用 FLTK 定时器自动关闭窗口，便于在 `xvfb-run` 或 Windows 调试环境中验证 GUI 关闭路径。
+- Linux 构建通过，`./build/bin/lc3_studio --self-test` 通过，`xvfb-run -a ./build/bin/lc3_studio --gui-close-test` 通过。
