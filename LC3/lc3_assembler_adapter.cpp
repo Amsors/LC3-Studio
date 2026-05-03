@@ -52,11 +52,15 @@ AssembleResult AssemblerService::assembleSource(const std::string& source) const
     try {
         std::string config_path = findConfigPath();
         Parser parser = config_path.empty() ? Parser() : Parser(config_path);
-        result.words = parser.AssembleSourceToWords(source);
+        std::vector<Parser::WordInfo> words = parser.AssembleSourceToWordInfo(source);
 
         std::ostringstream out;
-        for (const std::string& word : result.words) {
-            out << word << '\n';
+        result.words.reserve(words.size());
+        result.word_sources.reserve(words.size());
+        for (const Parser::WordInfo& word : words) {
+            result.words.push_back(word.bits);
+            result.word_sources.push_back(word.source);
+            out << word.bits << '\n';
         }
         result.machine_code = out.str();
         result.ok = true;

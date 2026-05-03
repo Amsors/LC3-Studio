@@ -25,6 +25,14 @@ std::string trapEchoSelfTestSource() {
            ".end\n";
 }
 
+std::string sourceMetadataSelfTestSource() {
+    return ".orig x3000\n"
+           "VALUE   .fill x1234\n"
+           "TEXT    .stringz \"A\"\n"
+           "        halt\n"
+           ".end\n";
+}
+
 int runSelfTest() {
     lc3::AssemblerService assembler;
     lc3::AssembleResult assembled = assembler.assembleSource(selfTestSource());
@@ -32,6 +40,20 @@ int runSelfTest() {
         std::cerr << "Assembly failed: " << assembled.error_message << "\n";
         return 1;
     }
+
+    lc3::AssembleResult metadata_assembled = assembler.assembleSource(sourceMetadataSelfTestSource());
+    if (!metadata_assembled.ok || metadata_assembled.words.size() != metadata_assembled.word_sources.size() ||
+        metadata_assembled.word_sources.size() != 4 ||
+        metadata_assembled.word_sources[0].find(".fill") == std::string::npos ||
+        metadata_assembled.word_sources[1].find(".stringz") == std::string::npos ||
+        metadata_assembled.word_sources[2].find(".stringz") == std::string::npos ||
+        metadata_assembled.word_sources[3].find("halt") == std::string::npos) {
+        std::cerr << "Source metadata self test failed\n";
+        return 1;
+    }
+
+    std::cout << "Source metadata self test OK: words="
+              << metadata_assembled.word_sources.size() << "\n";
 
     lc3::SimulatorService simulator;
     lc3::OperationResult loaded = simulator.loadMachineCode(assembled.machine_code);

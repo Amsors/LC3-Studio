@@ -21,6 +21,7 @@
 #include <FL/fl_draw.H>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <sstream>
 #include <vector>
@@ -699,7 +700,7 @@ void MainWindow::onMemoryTableEvent(Fl_Widget* widget, void* data) {
         } else if (table->callback_col() == 2 || table->callback_col() == 3) {
             self->beginMemoryEdit(table->callback_row(), table->callback_col());
         } else {
-            self->setStatus("Address column is not editable");
+            self->setStatus("Only Hex and Binary memory columns are editable");
         }
         Fl::event_clicks(0);
     }
@@ -760,6 +761,7 @@ void MainWindow::openFile() {
         dirty_ = false;
         machine_buffer_->text("");
         latest_machine_code_.clear();
+        latest_word_sources_.clear();
         program_loaded_ = false;
         state_modified_ = false;
         state_modified_label_->copy_label("");
@@ -825,12 +827,14 @@ void MainWindow::assembleSource() {
     if (!result.ok) {
         machine_buffer_->text("");
         latest_machine_code_.clear();
+        latest_word_sources_.clear();
         appendLog("Assembly failed: " + result.error_message);
         setStatus("Assembly failed");
         return;
     }
 
     latest_machine_code_ = result.machine_code;
+    latest_word_sources_ = result.word_sources;
     setMachineOutput(formatMachineOutput(result.words));
     appendLog("Assembled successfully: " + std::to_string(result.words.size()) + " word(s)");
     setStatus("Assembly succeeded");
@@ -843,6 +847,7 @@ void MainWindow::assembleAndLoad() {
     if (!assembled.ok) {
         machine_buffer_->text("");
         latest_machine_code_.clear();
+        latest_word_sources_.clear();
         program_loaded_ = false;
         simulator_.clearMachine();
         state_modified_ = false;
@@ -856,6 +861,7 @@ void MainWindow::assembleAndLoad() {
 
     setMachineOutput(formatMachineOutput(assembled.words));
     latest_machine_code_ = assembled.machine_code;
+    latest_word_sources_ = assembled.word_sources;
 
     lc3::OperationResult loaded = simulator_.loadMachineCode(assembled.machine_code);
     if (!loaded.ok) {
@@ -1162,6 +1168,7 @@ void MainWindow::openDemoProgram() {
     dirty_ = false;
     machine_buffer_->text("");
     latest_machine_code_.clear();
+    latest_word_sources_.clear();
     program_loaded_ = false;
     state_modified_ = false;
     state_modified_label_->copy_label("");
@@ -1444,6 +1451,7 @@ void MainWindow::invalidateLoadedProgram(const std::string& message) {
     stopRunTimer();
     program_loaded_ = false;
     latest_machine_code_.clear();
+    latest_word_sources_.clear();
     machine_buffer_->text("");
     simulator_.clearMachine();
     state_modified_ = false;
@@ -1473,7 +1481,10 @@ void MainWindow::refreshRegisterView(const lc3::RegisterView& registers) {
 }
 
 void MainWindow::refreshMemoryView(bool reset_scroll) {
-    memory_table_->setRows(simulator_.memoryWindow(memory_center_, kMemoryRowsBeforePc, kMemoryRowsAfterPc));
+    std::vector<lc3::MemoryRow> rows =
+        simulator_.memoryWindow(memory_center_, kMemoryRowsBeforePc, kMemoryRowsAfterPc);
+    applyMemorySources(rows);
+    memory_table_->setRows(rows);
     if (reset_scroll || reset_memory_scroll_on_next_refresh_) {
         memory_table_->scrollAddressNearUpperMiddle(memory_center_);
         reset_memory_scroll_on_next_refresh_ = false;
@@ -1526,6 +1537,21 @@ void MainWindow::updateTitle() {
         title += " *";
     }
     copy_label(title.c_str());
+}
+
+void MainWindow::applyMemorySources(std::vector<lc3::MemoryRow>& rows) const {
+    if (!program_loaded_ || latest_word_sources_.empty()) {
+        return;
+    }
+
+    lc3::RegisterView registers = simulator_.registers();
+    int loaded_start = registers.loaded_start & 0xFFFF;
+    for (lc3::MemoryRow& row : rows) {
+        int offset = (row.address & 0xFFFF) - loaded_start;
+        if (offset >= 0 && offset < static_cast<int>(latest_word_sources_.size())) {
+            row.source = latest_word_sources_[static_cast<std::size_t>(offset)];
+        }
+    }
 }
 
 std::string MainWindow::defaultSource() {

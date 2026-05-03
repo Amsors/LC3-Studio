@@ -202,8 +202,16 @@ public:
 };
 
 class Parser {
+public:
+    struct WordInfo {
+        std::string bits;
+        std::string source;
+    };
+
+private:
     struct SourceLine {
         int source_line = 0;
+        std::string source_text;
         std::vector<std::string> tokens;
     };
 
@@ -431,7 +439,17 @@ public:
     }
 
     std::vector<std::string> AssembleSourceToWords(const std::string& source) {
-        return AssembleLines(ParseSourceLines(source));
+        std::vector<WordInfo> words_with_source = AssembleSourceToWordInfo(source);
+        std::vector<std::string> words;
+        words.reserve(words_with_source.size());
+        for (const WordInfo& word : words_with_source) {
+            words.push_back(word.bits);
+        }
+        return words;
+    }
+
+    std::vector<WordInfo> AssembleSourceToWordInfo(const std::string& source) {
+        return AssembleLinesWithSource(ParseSourceLines(source));
     }
 
     std::string AssembleSourceFlat(const std::string& source) {
@@ -466,12 +484,53 @@ private:
         return "Line " + std::to_string(source_line) + ": " + msg;
     }
 
+    static std::string TrimSourceText(std::string text) {
+        while (!text.empty() && std::isspace(static_cast<unsigned char>(text.front()))) {
+            text.erase(text.begin());
+        }
+        while (!text.empty() && std::isspace(static_cast<unsigned char>(text.back()))) {
+            text.pop_back();
+        }
+        return text;
+    }
+
+    static std::string SourceTextForDisplay(const std::string& raw_line) {
+        std::string text;
+        bool in_string = false;
+        bool escape = false;
+
+        for (char c : raw_line) {
+            if (in_string) {
+                text.push_back(c);
+                if (escape) {
+                    escape = false;
+                } else if (c == '\\') {
+                    escape = true;
+                } else if (c == '"') {
+                    in_string = false;
+                }
+                continue;
+            }
+
+            if (c == ';') {
+                break;
+            }
+            text.push_back(c);
+            if (c == '"') {
+                in_string = true;
+            }
+        }
+
+        return TrimSourceText(text);
+    }
+
     std::vector<SourceLine> ParseSourceLines(const std::string& source) const {
         std::vector<SourceLine> result;
         auto raw_lines = Tokenizer::SplitLines(source);
         for (size_t i = 0; i < raw_lines.size(); i++) {
             SourceLine line;
             line.source_line = static_cast<int>(i + 1);
+            line.source_text = SourceTextForDisplay(raw_lines[i]);
             try {
                 auto tokens = Tokenizer::TokenizeLine(raw_lines[i]);
                 for (const std::string& token : tokens) {
@@ -503,6 +562,16 @@ private:
     }
 
     std::vector<std::string> AssembleLines(const std::vector<SourceLine>& lines) {
+        std::vector<WordInfo> words_with_source = AssembleLinesWithSource(lines);
+        std::vector<std::string> words;
+        words.reserve(words_with_source.size());
+        for (const WordInfo& word : words_with_source) {
+            words.push_back(word.bits);
+        }
+        return words;
+    }
+
+    std::vector<WordInfo> AssembleLinesWithSource(const std::vector<SourceLine>& lines) {
         label_line.clear();
         int current_line = 0;
         bool ended = false;
@@ -518,13 +587,15 @@ private:
 
         (void)ended;
 
-        std::vector<std::string> words;
+        std::vector<WordInfo> words;
         current_line = 0;
         for (const SourceLine& line : lines) {
             ParsedLine parsed = ParseStatement(line, current_line, false);
             if (parsed.kind == ParsedLine::End) break;
             if (!parsed.encoded.empty()) {
-                words.insert(words.end(), parsed.encoded.begin(), parsed.encoded.end());
+                for (const std::string& encoded : parsed.encoded) {
+                    words.push_back({ encoded, line.source_text });
+                }
             }
             current_line += parsed.word_count;
         }

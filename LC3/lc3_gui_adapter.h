@@ -15,6 +15,7 @@ struct AssembleResult {
     bool ok = false;
     std::string machine_code;
     std::vector<std::string> words;
+    std::vector<std::string> word_sources;
     std::string error_message;
 };
 
@@ -39,6 +40,7 @@ struct MemoryRow {
     int value = 0;
     bool is_pc = false;
     bool has_breakpoint = false;
+    std::string source;
 };
 
 struct RunStepResult {

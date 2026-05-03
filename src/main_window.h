@@ -106,6 +106,7 @@ private:
     void refreshTrapViews();
     void updateControlStates(const lc3::RegisterView& registers);
     void updateTitle();
+    void applyMemorySources(std::vector<lc3::MemoryRow>& rows) const;
 
     static std::string defaultSource();
     static std::string fileDisplayName(const std::filesystem::path& path);
@@ -163,6 +164,7 @@ private:
 
     std::filesystem::path current_file_;
     std::string latest_machine_code_;
+    std::vector<std::string> latest_word_sources_;
     int memory_center_ = 0x3000;
     bool program_loaded_ = false;
     bool dirty_ = false;

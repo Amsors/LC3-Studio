@@ -189,7 +189,11 @@ std::vector<MemoryRow> SimulatorService::memoryWindow(int center_address, int be
     rows.reserve(values.size());
     for (int i = 0; i < static_cast<int>(values.size()); i++) {
         int address = start + i;
-        rows.push_back({ address, values[static_cast<std::size_t>(i)], address == pc, hasBreakpoint(address) });
+        rows.push_back({ address,
+                         values[static_cast<std::size_t>(i)],
+                         address == pc,
+                         hasBreakpoint(address),
+                         "" });
     }
     return rows;
 }

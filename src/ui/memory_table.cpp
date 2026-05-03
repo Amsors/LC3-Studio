@@ -10,7 +10,7 @@
 MemoryTable::MemoryTable(int x, int y, int width, int height)
     : Fl_Table_Row(x, y, width, height) {
     rows(0);
-    cols(4);
+    cols(5);
     col_header(1);
     col_header_height(24);
     row_header(0);
@@ -30,14 +30,16 @@ void MemoryTable::setRows(const std::vector<lc3::MemoryRow>& memory_rows) {
 
 void MemoryTable::fitColumns(int width) {
     visible_cell_bounds_.clear();
-    int flag_width = 62;
-    int address_width = 86;
-    int hex_width = 78;
-    int binary_width = std::max(150, width - flag_width - address_width - hex_width - 20);
+    int flag_width = 56;
+    int address_width = 82;
+    int hex_width = 72;
+    int binary_width = 154;
+    int source_width = std::max(180, width - flag_width - address_width - hex_width - binary_width - 20);
     col_width(0, flag_width);
     col_width(1, address_width);
     col_width(2, hex_width);
     col_width(3, binary_width);
+    col_width(4, source_width);
 }
 
 bool MemoryTable::addressAtRow(int row, int& address) const {
@@ -102,7 +104,7 @@ void MemoryTable::draw_cell(TableContext context, int row, int col, int x, int y
 }
 
 const char* MemoryTable::columnName(int col) {
-    static const std::array<const char*, 4> names = { "Flag", "Address", "Hex", "Binary" };
+    static const std::array<const char*, 5> names = { "Flag", "Address", "Hex", "Binary", "Source" };
     return (col >= 0 && col < static_cast<int>(names.size())) ? names[static_cast<std::size_t>(col)] : "";
 }
 
@@ -131,7 +133,7 @@ void MemoryTable::drawValueCell(int row, int col, int x, int y, int width, int h
     fl_color(fl_rgb_color(214, 220, 226));
     fl_rect(x, y, width, height);
     fl_color(FL_BLACK);
-    fl_font(col == 3 ? FL_COURIER : FL_HELVETICA, 13);
+    fl_font((col == 3 || col == 4) ? FL_COURIER : FL_HELVETICA, 13);
     std::string text = valueText(memory, col);
     fl_draw(text.c_str(), x + 5, y, width - 10, height, FL_ALIGN_LEFT | FL_ALIGN_CENTER);
     fl_pop_clip();
@@ -147,6 +149,7 @@ std::string MemoryTable::valueText(const lc3::MemoryRow& memory, int col) {
         case 1: return lc3::formatHexWord(memory.address);
         case 2: return lc3::formatHexWord(memory.value);
         case 3: return lc3::formatBinaryWord(memory.value);
+        case 4: return memory.source;
         default: return "";
     }
 }

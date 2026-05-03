@@ -154,3 +154,12 @@ build\x64\Release\lc3_studio.exe --self-test
 - 问题原因是旧析构顺序先释放了 `Fl_Text_Buffer`，而窗口子控件仍持有这些 buffer；随后 FLTK 删除文本控件时会再次访问已释放的 buffer 来注销回调。
 - 新增 `--gui-close-test` 隐藏测试入口，用 FLTK 定时器自动关闭窗口，便于在 `xvfb-run` 或 Windows 调试环境中验证 GUI 关闭路径。
 - Linux 构建通过，`./build/bin/lc3_studio --self-test` 通过，`xvfb-run -a ./build/bin/lc3_studio --gui-close-test` 通过。
+
+## 2026-05-03 新增：Memory 显示机器字来源
+
+- `AssemblerService` 的汇编结果新增 `word_sources`，与机器字一一对应，记录每个输出 word 来自哪一条源码语句。
+- 汇编器现在保留去掉注释后的原始源码语句，因此 Memory 中可直接看到对应指令、`.fill`、`.stringz` 或 `.blkw` 等来源。
+- `MemoryTable` 新增 `Source` 列；程序加载后，Memory 刷新会按 `loaded_start + word offset` 将来源填入对应地址。
+- `.stringz` 产生的多个内存 word 会显示同一条 `.stringz` 源语句，便于课堂展示字符串数据在内存中的展开位置。
+- `--self-test` 新增来源元数据检查，覆盖 `.fill`、`.stringz` 和指令来源。
+- Linux 构建通过，`./build/bin/lc3_studio --self-test` 通过，`xvfb-run -a ./build/bin/lc3_studio --gui-close-test` 通过。
