@@ -78,6 +78,7 @@ private:
 
     void setEditorText(const std::string& text);
     std::string editorText() const;
+    void restyleEditor();
     std::string trapInputText() const;
     void setMachineOutput(const std::string& text);
     void appendLog(const std::string& message);
@@ -135,6 +136,7 @@ private:
     Fl_Box* status_bar_ = nullptr;
 
     Fl_Text_Buffer* editor_buffer_ = nullptr;
+    Fl_Text_Buffer* editor_style_buffer_ = nullptr;
     Fl_Text_Buffer* machine_buffer_ = nullptr;
     Fl_Text_Buffer* trap_input_buffer_ = nullptr;
     Fl_Text_Buffer* trap_output_buffer_ = nullptr;

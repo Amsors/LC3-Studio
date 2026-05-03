@@ -17,8 +17,19 @@
 - 阶段 6 运行/暂停：已完成。使用 `Fl::add_timeout()`/`Fl::repeat_timeout()` 分批执行，避免 GUI 长时间阻塞。
 - 阶段 7 地址断点：已完成。支持地址输入添加/移除断点、清空断点、双击内存行切换断点，Run 会在断点地址执行前暂停，Step 可越过断点。
 - 阶段 8 展示准备：大部分完成。已有示例程序、状态消息和快捷键；Release 产物已存在。
+- ASM Source 编辑器代码高亮：已完成。`Fl_Text_Editor` 现在使用独立 style buffer，对 LC-3 指令/伪指令、寄存器、立即数/字符串、标签和注释分别使用不同颜色显示，并会在用户编辑、打开文件和载入 demo 时自动刷新。
 
 ## 验证结果
+
+已运行 Release 构建：
+
+```text
+"C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" wlt_helper_cpp.sln /p:Configuration=Release /p:Platform=x64 /m
+```
+
+结果通过：
+
+- 0 个警告，0 个错误。
 
 已运行 Release 自检：
 
