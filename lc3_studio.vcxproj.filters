@@ -3,7 +3,7 @@
   <ItemGroup>
     <Filter Include="Source Files">
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat</Extensions>
     </Filter>
     <Filter Include="Source Files\UI">
       <UniqueIdentifier>{C470E2F8-2813-44ED-A9BA-9278B4E7B88E}</UniqueIdentifier>
@@ -20,6 +20,7 @@
     </Filter>
     <Filter Include="Examples">
       <UniqueIdentifier>{23A29A10-D6AB-49EC-8E26-44D94878305C}</UniqueIdentifier>
+      <Extensions>asm</Extensions>
     </Filter>
     <Filter Include="Tools">
       <UniqueIdentifier>{C67D2EB4-C6D3-49EC-B39C-3029C5995C29}</UniqueIdentifier>

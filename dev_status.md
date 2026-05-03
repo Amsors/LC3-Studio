@@ -174,3 +174,10 @@ build\x64\Release\lc3_studio.exe --self-test
 - `--self-test` 新增内嵌示例检查，会确认至少存在多个示例，并逐个调用汇编器验证示例源码有效。
 - Linux 构建通过，`./build/bin/lc3_studio --self-test` 通过，输出确认 `Embedded examples self test OK: count=3`。
 - 本次尝试运行 `xvfb-run -a ./build/bin/lc3_studio --gui-close-test` 时当前环境无法打开虚拟显示，未完成 GUI 关闭路径复测。
+
+## 2026-05-04 修复：Visual Studio 示例文件过滤器归类
+
+- 修复 VS2022 解决方案视图中部分 `examples/*.asm` 被显示到 `Source Files` 而不是 `Examples` 的问题。
+- `lc3_studio.vcxproj` 继续使用 `examples\*.asm` 通配项，后续新增样例 `.asm` 不需要手动修改 VS 工程文件。
+- `lc3_studio.vcxproj.filters` 将 `examples\*.asm` 映射到 `Examples`，并从 `Source Files` 默认扩展名中移除 `asm`，防止 LC-3 示例汇编文件回落到源码过滤器。
+- Release 构建通过，`build\x64\Release\lc3_studio.exe --self-test` 通过，内嵌示例数量确认仍为 3。
