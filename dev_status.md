@@ -8,7 +8,7 @@
 
 ## 已完成情况
 
-- 阶段 0 基线清理：已完成。Visual Studio 工程使用 C++17、`/utf-8`，Debug 使用 `/MTd`，Release 使用 `/MT`，FLTK include/lib 路径已配置。
+- 阶段 0 基线清理：已完成。Visual Studio 工程使用 C++20、`/utf-8`，Debug 使用 `/MTd`，Release 使用 `/MT`，FLTK include/lib 路径已配置。
 - 阶段 1 核心集成：已完成。`LC3/lc3_gui_adapter.h` 暴露 `AssemblerService` 和 `SimulatorService`，`assembler.cpp`、`runtime.cpp` 通过 `LC3_AS_LIBRARY` 方式作为库代码接入 GUI。
 - 阶段 2 ASM 编辑器和汇编输出：已完成。界面包含 `Fl_Text_Editor` 源码编辑器、汇编按钮、机器码显示、日志显示、打开/保存 `.asm` 文件。
 - 阶段 3 加载并检查机器状态：已完成。支持 Assemble+Load，显示 R0-R7、PC、IR、CC、RUNNING、HALTED，支持内存窗口和地址跳转。
@@ -223,3 +223,10 @@ build\x64\Release\lc3_studio.exe --self-test
 - GUI 汇编失败时会在日志中显示带行号的错误信息，并把 ASM Source 编辑器光标/选区移动到对应源码行；状态栏显示 `Assembly failed at line N`。
 - `--self-test` 新增汇编错误行号检查，覆盖 `add r0, r0, #32` 这类由范围检查抛出的底层错误。
 - Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。
+
+## 2026-05-04 调整：项目 C++ 标准升级到 C++20
+
+- Visual Studio 工程 Debug/Release 配置的 `LanguageStandard` 已由 `stdcpp17` 升级为 `stdcpp20`，VS2022 会使用 `/std:c++20` 编译。
+- Linux/CLion 构建入口 `CMakeLists.txt` 的 `CMAKE_CXX_STANDARD` 已由 17 升级为 20，并继续保持 `CMAKE_CXX_STANDARD_REQUIRED ON` 和 `CMAKE_CXX_EXTENSIONS OFF`。
+- `src/ui/file_utils.cpp` 将 UTF-8 路径构造改为 C++20 `char8_t` 路径入口，避免 `std::filesystem::u8path` 在 C++20 下产生弃用警告；不支持 `char8_t` 的工具链仍保留旧入口兜底。
+- Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过；`build/compile_commands.json` 中确认使用 `-std=c++20`。

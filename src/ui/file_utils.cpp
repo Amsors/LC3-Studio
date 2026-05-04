@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 
 namespace ui {
 namespace {
@@ -21,7 +22,15 @@ std::string lowercaseAscii(std::string text) {
 } // namespace
 
 std::filesystem::path utf8Path(const char* text) {
-    return text ? std::filesystem::u8path(text) : std::filesystem::path();
+    if (!text) {
+        return {};
+    }
+#if defined(__cpp_lib_char8_t) && (__cpp_lib_char8_t >= 201907L)
+    return std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(text),
+                                                    std::char_traits<char>::length(text)));
+#else
+    return std::filesystem::u8path(text);
+#endif
 }
 
 std::string readFile(const std::filesystem::path& path) {
