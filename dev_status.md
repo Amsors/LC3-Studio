@@ -181,3 +181,11 @@ build\x64\Release\lc3_studio.exe --self-test
 - `lc3_studio.vcxproj` 继续使用 `examples\*.asm` 通配项，后续新增样例 `.asm` 不需要手动修改 VS 工程文件。
 - `lc3_studio.vcxproj.filters` 将 `examples\*.asm` 映射到 `Examples`，并从 `Source Files` 默认扩展名中移除 `asm`，防止 LC-3 示例汇编文件回落到源码过滤器。
 - Release 构建通过，`build\x64\Release\lc3_studio.exe --self-test` 通过，内嵌示例数量确认仍为 3。
+
+## 2026-05-04 新增：64-bit Fibonacci 示例程序
+
+- 完成 `examples/fibonacci.asm`，示例从 R1 读取非负整数 n，计算 `fibonacci(n)` 的低 64 位，并通过 TRAP `OUT` 输出固定 16 位大写十六进制字符串。
+- 程序内部使用 16 个十六进制位作为 64-bit 工作表示，每位占一个 LC-3 word，便于在 LC-3 指令集中处理进位并直接生成最终输出；超过 `fibonacci(93)` 的结果按 `2^64` 取低位。
+- `print_digit` 子程序已显式保存和恢复 R7，避免 `OUT`/TRAP 覆盖返回地址。
+- Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过，内嵌示例数量确认变为 4。
+- 额外用临时验证程序设置 R1 并运行示例，已覆盖 n=0、1、2、10、20、50、93、94；输出分别匹配 16 位十六进制期望值。
