@@ -40,6 +40,13 @@ std::string sourceMetadataSelfTestSource() {
            ".end\n";
 }
 
+std::string assemblyErrorLineSelfTestSource() {
+    return ".orig x3000\n"
+           "        add r0, r0, #32\n"
+           "        halt\n"
+           ".end\n";
+}
+
 void printUsage(std::ostream& out, const char* executable) {
     const char* name = executable ? executable : "lc3_studio";
     out << "Usage:\n"
@@ -185,6 +192,17 @@ int runSelfTest() {
 
     std::cout << "Source metadata self test OK: words="
               << metadata_assembled.word_sources.size() << "\n";
+
+    lc3::AssembleResult invalid_assembled = assembler.assembleSource(assemblyErrorLineSelfTestSource());
+    if (invalid_assembled.ok || invalid_assembled.error_line != 2 ||
+        invalid_assembled.error_message.find("Line 2:") == std::string::npos) {
+        std::cerr << "Assembly error line self test failed: "
+                  << invalid_assembled.error_message << "\n";
+        return 1;
+    }
+
+    std::cout << "Assembly error line self test OK: line="
+              << invalid_assembled.error_line << "\n";
 
     lc3::SimulatorService simulator;
     lc3::OperationResult loaded = simulator.loadMachineCode(assembled.machine_code);

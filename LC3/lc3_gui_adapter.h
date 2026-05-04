@@ -18,6 +18,7 @@ struct AssembleResult {
     std::vector<std::string> words;
     std::vector<std::string> word_sources;
     std::string error_message;
+    int error_line = 0;
 };
 
 class AssemblerService {

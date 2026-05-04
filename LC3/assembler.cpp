@@ -26,7 +26,43 @@ using json = nlohmann::json;
 
 class AssemblyError : public std::runtime_error {
 public:
-    explicit AssemblyError(const std::string& msg) : std::runtime_error(msg) {}
+    explicit AssemblyError(const std::string& msg)
+        : std::runtime_error(msg), source_line_(ParseLinePrefix(msg)) {}
+
+    AssemblyError(const std::string& msg, int source_line)
+        : std::runtime_error(msg), source_line_(source_line) {}
+
+    int sourceLine() const noexcept {
+        return source_line_;
+    }
+
+    bool hasSourceLine() const noexcept {
+        return source_line_ > 0;
+    }
+
+private:
+    static int ParseLinePrefix(const std::string& msg) {
+        const std::string prefix = "Line ";
+        if (msg.rfind(prefix, 0) != 0) {
+            return 0;
+        }
+
+        size_t pos = prefix.size();
+        int line = 0;
+        bool has_digit = false;
+        while (pos < msg.size() && std::isdigit(static_cast<unsigned char>(msg[pos]))) {
+            has_digit = true;
+            line = line * 10 + (msg[pos] - '0');
+            pos++;
+        }
+
+        if (!has_digit || pos >= msg.size() || msg[pos] != ':') {
+            return 0;
+        }
+        return line;
+    }
+
+    int source_line_ = 0;
 };
 
 class Configuration {
@@ -484,6 +520,10 @@ private:
         return "Line " + std::to_string(source_line) + ": " + msg;
     }
 
+    static AssemblyError ErrorAtLine(int source_line, const std::string& msg) {
+        return AssemblyError(WithLine(source_line, msg), source_line);
+    }
+
     static std::string TrimSourceText(std::string text) {
         while (!text.empty() && std::isspace(static_cast<unsigned char>(text.front()))) {
             text.erase(text.begin());
@@ -537,7 +577,7 @@ private:
                     line.tokens.push_back(Tokenizer::LowercaseToken(token));
                 }
             } catch (const AssemblyError& e) {
-                throw AssemblyError(WithLine(line.source_line, e.what()));
+                throw ErrorAtLine(line.source_line, e.what());
             }
             result.push_back(std::move(line));
         }
@@ -577,7 +617,7 @@ private:
         bool ended = false;
 
         for (const SourceLine& line : lines) {
-            ParsedLine parsed = ParseStatement(line, current_line, true);
+            ParsedLine parsed = ParseStatementWithLine(line, current_line, true);
             if (parsed.kind == ParsedLine::End) {
                 ended = true;
                 break;
@@ -590,7 +630,7 @@ private:
         std::vector<WordInfo> words;
         current_line = 0;
         for (const SourceLine& line : lines) {
-            ParsedLine parsed = ParseStatement(line, current_line, false);
+            ParsedLine parsed = ParseStatementWithLine(line, current_line, false);
             if (parsed.kind == ParsedLine::End) break;
             if (!parsed.encoded.empty()) {
                 for (const std::string& encoded : parsed.encoded) {
@@ -600,6 +640,17 @@ private:
             current_line += parsed.word_count;
         }
         return words;
+    }
+
+    ParsedLine ParseStatementWithLine(const SourceLine& line, int current_line, bool pass1) {
+        try {
+            return ParseStatement(line, current_line, pass1);
+        } catch (const AssemblyError& e) {
+            if (e.hasSourceLine()) {
+                throw;
+            }
+            throw ErrorAtLine(line.source_line, e.what());
+        }
     }
 
     ParsedLine ParseStatement(const SourceLine& line, int current_line, bool pass1) {

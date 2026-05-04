@@ -972,8 +972,11 @@ void MainWindow::assembleSource() {
         machine_buffer_->text("");
         latest_machine_code_.clear();
         latest_word_sources_.clear();
+        focusEditorLine(result.error_line);
         appendLog("Assembly failed: " + result.error_message);
-        setStatus("Assembly failed");
+        setStatus(result.error_line > 0
+                      ? "Assembly failed at line " + std::to_string(result.error_line)
+                      : "Assembly failed");
         return;
     }
 
@@ -997,8 +1000,11 @@ void MainWindow::assembleAndLoad() {
         state_modified_ = false;
         state_modified_label_->copy_label("");
         memory_center_ = 0x3000;
+        focusEditorLine(assembled.error_line);
         appendLog("Assembly failed: " + assembled.error_message);
-        setStatus("Assembly failed");
+        setStatus(assembled.error_line > 0
+                      ? "Assembly failed at line " + std::to_string(assembled.error_line)
+                      : "Assembly failed");
         refreshSimulatorViews();
         return;
     }
@@ -1599,6 +1605,29 @@ void MainWindow::restyleEditor() {
     std::string styles = ui::buildAsmStyleText(editorText());
     editor_style_buffer_->text(styles.c_str());
     editor_->redisplay_range(0, editor_buffer_->length());
+}
+
+void MainWindow::focusEditorLine(int source_line) {
+    if (!editor_buffer_ || !editor_ || source_line <= 0) {
+        return;
+    }
+
+    int position = 0;
+    int line = 1;
+    const int length = editor_buffer_->length();
+    while (line < source_line && position < length) {
+        if (editor_buffer_->byte_at(position) == '\n') {
+            line++;
+        }
+        position++;
+    }
+
+    const int line_start = position;
+    const int line_end = editor_buffer_->line_end(line_start);
+    editor_buffer_->select(line_start, line_end);
+    editor_->insert_position(line_start);
+    editor_->show_insert_position();
+    editor_->take_focus();
 }
 
 std::string MainWindow::trapInputText() const {

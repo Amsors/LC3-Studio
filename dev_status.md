@@ -215,3 +215,11 @@ build\x64\Release\lc3_studio.exe --self-test
 - 保留无参数启动 GUI、`--self-test` 和 `--gui-close-test` 行为；新增 `-h`/`--help` 输出命令用法。
 - Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。
 - 使用 `/tmp/lc3_cli_sum.asm` 验证 `-a` 生成 `/tmp/lc3_cli_sum.bin` 成功；随后 `-r /tmp/lc3_cli_sum.bin` 运行到 HALT，输出 R0=`x000F`、HALTED=`true`、STEPS=`19`。
+
+## 2026-05-04 修复：汇编错误报告源码行号
+
+- `AssemblyError` 新增源码行号字段，`Parser` 在汇编每一行时会把底层立即数解析、范围检查等没有行号的异常补充为 `Line N: ...`，已有行号的错误不会被重复包装。
+- `AssembleResult` 新增 `error_line`，`AssemblerService` 会把汇编异常中的行号传给 GUI 和命令行入口。
+- GUI 汇编失败时会在日志中显示带行号的错误信息，并把 ASM Source 编辑器光标/选区移动到对应源码行；状态栏显示 `Assembly failed at line N`。
+- `--self-test` 新增汇编错误行号检查，覆盖 `add r0, r0, #32` 这类由范围检查抛出的底层错误。
+- Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。

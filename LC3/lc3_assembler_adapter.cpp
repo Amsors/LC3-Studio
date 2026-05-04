@@ -64,6 +64,10 @@ AssembleResult AssemblerService::assembleSource(const std::string& source) const
         }
         result.machine_code = out.str();
         result.ok = true;
+    } catch (const AssemblyError& e) {
+        result.ok = false;
+        result.error_message = e.what();
+        result.error_line = e.sourceLine();
     } catch (const std::exception& e) {
         result.ok = false;
         result.error_message = e.what();

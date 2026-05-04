@@ -106,6 +106,7 @@ private:
     void setEditorText(const std::string& text);
     std::string editorText() const;
     void restyleEditor();
+    void focusEditorLine(int source_line);
     std::string trapInputText() const;
     void setMachineOutput(const std::string& text);
     void appendLog(const std::string& message);
