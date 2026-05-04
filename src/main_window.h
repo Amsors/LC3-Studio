@@ -11,11 +11,14 @@
 class Fl_Box;
 class Fl_Button;
 class Fl_Check_Button;
+class Fl_Group;
 class Fl_Input;
 class Fl_Menu_Bar;
+class Fl_Tabs;
 class Fl_Text_Buffer;
 class Fl_Text_Display;
 class Fl_Text_Editor;
+class Fl_Value_Slider;
 class Fl_Widget;
 class MemoryTable;
 class RegisterTable;
@@ -45,6 +48,8 @@ private:
     static void onJumpMemory(Fl_Widget* widget, void* data);
     static void onJumpMemoryToPc(Fl_Widget* widget, void* data);
     static void onAutoMemoryScrollChanged(Fl_Widget* widget, void* data);
+    static void onRunRateSliderChanged(Fl_Widget* widget, void* data);
+    static void onRunRateInputChanged(Fl_Widget* widget, void* data);
     static void onAddBreakpoint(Fl_Widget* widget, void* data);
     static void onRemoveBreakpoint(Fl_Widget* widget, void* data);
     static void onClearBreakpoints(Fl_Widget* widget, void* data);
@@ -78,6 +83,10 @@ private:
     void jumpMemory();
     void jumpMemoryToPc();
     void setAutoMemoryScroll(bool enabled);
+    void setRunRateLimit(int instructions_per_second, bool log_change);
+    void updateRunRateControls();
+    int runStepsPerTick() const;
+    double runTickSeconds() const;
     void addBreakpoint();
     void removeBreakpoint();
     void clearBreakpoints();
@@ -148,6 +157,13 @@ private:
     Fl_Box* trap_output_label_ = nullptr;
     Fl_Box* trap_remaining_label_ = nullptr;
     Fl_Box* log_label_ = nullptr;
+    Fl_Tabs* bottom_tabs_ = nullptr;
+    Fl_Group* io_tab_ = nullptr;
+    Fl_Group* settings_tab_ = nullptr;
+    Fl_Box* run_rate_label_ = nullptr;
+    Fl_Input* run_rate_input_ = nullptr;
+    Fl_Value_Slider* run_rate_slider_ = nullptr;
+    Fl_Box* run_rate_unit_label_ = nullptr;
     Fl_Box* state_modified_label_ = nullptr;
     Fl_Input* cell_editor_ = nullptr;
     Fl_Text_Editor* editor_ = nullptr;
@@ -178,6 +194,7 @@ private:
     bool auto_memory_scroll_enabled_ = true;
     bool reset_memory_scroll_on_next_refresh_ = false;
     bool state_modified_ = false;
+    int run_rate_limit_ = 5000;
     int cell_edit_kind_ = 0;
     int cell_edit_row_ = -1;
 };

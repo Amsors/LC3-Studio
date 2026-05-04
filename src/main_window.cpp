@@ -11,17 +11,21 @@
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Button.H>
 #include <FL/Fl_Check_Button.H>
+#include <FL/Fl_Group.H>
 #include <FL/Fl_Input.H>
 #include <FL/Fl_Menu_Bar.H>
 #include <FL/Fl_Native_File_Chooser.H>
 #include <FL/Fl_Table.H>
+#include <FL/Fl_Tabs.H>
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
 #include <FL/Fl_Text_Editor.H>
+#include <FL/Fl_Value_Slider.H>
 #include <FL/fl_ask.H>
 #include <FL/fl_draw.H>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdlib>
 #include <sstream>
@@ -37,10 +41,13 @@ constexpr int kGap = 8;
 constexpr int kLabelHeight = 22;
 constexpr int kButtonHeight = 30;
 constexpr int kToolbarRowGap = 6;
+constexpr int kTabHeaderHeight = 28;
 constexpr int kMemoryRowsBeforePc = 8;
 constexpr int kMemoryRowsAfterPc = 32;
-constexpr int kRunStepsPerTick = 100;
-constexpr double kRunTickSeconds = 0.02;
+constexpr int kDefaultRunRateLimit = 5000;
+constexpr int kMinRunRateLimit = 1;
+constexpr int kMaxRunRateLimit = 50000;
+constexpr double kRunTimerBaseSeconds = 0.02;
 
 class EnterCallbackInput : public Fl_Input {
 public:
@@ -261,10 +268,33 @@ std::string exampleMenuTitle(const embedded_examples::AssemblyExample& example) 
     return title;
 }
 
+bool parseRunRateText(const char* text, int& value) {
+    if (!text) {
+        return false;
+    }
+
+    std::istringstream input(text);
+    long long parsed = 0;
+    char trailing = '\0';
+    if (!(input >> parsed)) {
+        return false;
+    }
+    if (input >> trailing) {
+        return false;
+    }
+    if (parsed < kMinRunRateLimit || parsed > kMaxRunRateLimit) {
+        return false;
+    }
+
+    value = static_cast<int>(parsed);
+    return true;
+}
+
 } // namespace
 
 MainWindow::MainWindow(int width, int height)
-    : Fl_Double_Window(width, height, "LC-3 Assembly Studio") {
+    : Fl_Double_Window(width, height, "LC-3 Assembly Studio"),
+      run_rate_limit_(kDefaultRunRateLimit) {
     buildUi();
     const embedded_examples::AssemblyExample* startup_example = embedded_examples::exampleAt(0);
     if (startup_example) {
@@ -383,10 +413,6 @@ void MainWindow::buildUi() {
     auto_memory_scroll_check_ = new Fl_Check_Button(0, 0, 1, 1, "Auto PC scroll");
     auto_memory_scroll_check_->value(1);
     auto_memory_scroll_check_->callback(onAutoMemoryScrollChanged, this);
-    trap_input_label_ = new Fl_Box(0, 0, 1, 1, "TRAP Input Buffer");
-    trap_output_label_ = new Fl_Box(0, 0, 1, 1, "TRAP Output");
-    trap_remaining_label_ = new Fl_Box(0, 0, 1, 1, "Remaining: 0");
-    log_label_ = new Fl_Box(0, 0, 1, 1, "Log");
 
     jump_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     breakpoint_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
@@ -395,19 +421,12 @@ void MainWindow::buildUi() {
     register_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     memory_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     auto_memory_scroll_check_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
-    trap_input_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
-    trap_output_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
-    trap_remaining_label_->align(FL_ALIGN_RIGHT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
-    log_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
     jump_label_->labelfont(FL_BOLD);
     breakpoint_label_->labelfont(FL_BOLD);
     source_label_->labelfont(FL_BOLD);
     machine_label_->labelfont(FL_BOLD);
     register_label_->labelfont(FL_BOLD);
     memory_label_->labelfont(FL_BOLD);
-    trap_input_label_->labelfont(FL_BOLD);
-    trap_output_label_->labelfont(FL_BOLD);
-    log_label_->labelfont(FL_BOLD);
 
     editor_buffer_ = new Fl_Text_Buffer();
     editor_style_buffer_ = new Fl_Text_Buffer();
@@ -453,6 +472,24 @@ void MainWindow::buildUi() {
     cell_editor_->callback(onCellEditConfirmed, this);
     cell_editor_->hide();
 
+    bottom_tabs_ = new Fl_Tabs(0, 0, 1, 1);
+    bottom_tabs_->begin();
+
+    io_tab_ = new Fl_Group(0, 0, 1, 1, "I/O");
+    io_tab_->begin();
+
+    trap_input_label_ = new Fl_Box(0, 0, 1, 1, "TRAP Input Buffer");
+    trap_output_label_ = new Fl_Box(0, 0, 1, 1, "TRAP Output");
+    trap_remaining_label_ = new Fl_Box(0, 0, 1, 1, "Remaining: 0");
+    log_label_ = new Fl_Box(0, 0, 1, 1, "Log");
+    trap_input_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+    trap_output_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+    trap_remaining_label_->align(FL_ALIGN_RIGHT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
+    log_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+    trap_input_label_->labelfont(FL_BOLD);
+    trap_output_label_->labelfont(FL_BOLD);
+    log_label_->labelfont(FL_BOLD);
+
     trap_input_editor_ = new WheelIsolatedTextEditor(0, 0, 1, 1);
     trap_input_editor_->buffer(trap_input_buffer_);
     trap_input_editor_->textfont(FL_COURIER);
@@ -471,6 +508,35 @@ void MainWindow::buildUi() {
     log_display_->buffer(log_buffer_);
     log_display_->textfont(FL_COURIER);
     log_display_->textsize(13);
+
+    io_tab_->end();
+
+    settings_tab_ = new Fl_Group(0, 0, 1, 1, "Settings");
+    settings_tab_->begin();
+
+    run_rate_label_ = new Fl_Box(0, 0, 1, 1, "Run rate limit");
+    run_rate_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE);
+    run_rate_label_->labelfont(FL_BOLD);
+
+    run_rate_input_ = new Fl_Input(0, 0, 1, 1, "");
+    run_rate_input_->type(FL_INT_INPUT);
+    run_rate_input_->when(FL_WHEN_ENTER_KEY_ALWAYS);
+    run_rate_input_->callback(onRunRateInputChanged, this);
+
+    run_rate_slider_ = new Fl_Value_Slider(0, 0, 1, 1);
+    run_rate_slider_->type(FL_HORIZONTAL);
+    run_rate_slider_->bounds(kMinRunRateLimit, kMaxRunRateLimit);
+    run_rate_slider_->step(1);
+    run_rate_slider_->precision(0);
+    run_rate_slider_->when(FL_WHEN_CHANGED);
+    run_rate_slider_->callback(onRunRateSliderChanged, this);
+
+    run_rate_unit_label_ = new Fl_Box(0, 0, 1, 1, "instructions/s");
+    run_rate_unit_label_->align(FL_ALIGN_LEFT | FL_ALIGN_INSIDE | FL_ALIGN_CLIP);
+
+    settings_tab_->end();
+    bottom_tabs_->end();
+    updateRunRateControls();
 
     status_bar_ = new Fl_Box(0, 0, w(), kStatusHeight, "");
     status_bar_->box(FL_FLAT_BOX);
@@ -533,7 +599,7 @@ void MainWindow::layoutChildren(int width, int height) {
     int content_y = kMenuHeight + kToolbarHeight + kMargin;
     int content_w = std::max(1, width - 2 * kMargin);
     int content_h = std::max(1, height - content_y - kStatusHeight - kMargin);
-    int bottom_h = std::max(104, content_h * 22 / 100);
+    int bottom_h = std::max(132, content_h * 24 / 100);
     bottom_h = std::min(bottom_h, std::max(80, content_h / 3));
     int top_h = std::max(220, content_h * 54 / 100);
     int memory_h = content_h - top_h - bottom_h - 2 * kGap;
@@ -588,6 +654,12 @@ void MainWindow::layoutChildren(int width, int height) {
                           std::max(1, memory_h - kLabelHeight));
     memory_table_->fitColumns(content_w);
 
+    bottom_tabs_->resize(content_x, bottom_y, content_w, bottom_h);
+    int bottom_page_y = bottom_y + kTabHeaderHeight;
+    int bottom_page_h = std::max(1, bottom_h - kTabHeaderHeight);
+    io_tab_->resize(content_x, bottom_page_y, content_w, bottom_page_h);
+    settings_tab_->resize(content_x, bottom_page_y, content_w, bottom_page_h);
+
     int available_bottom_w = std::max(1, content_w - 2 * kGap);
     int trap_input_w = std::max(220, available_bottom_w * 32 / 100);
     int trap_output_w = std::max(220, available_bottom_w * 32 / 100);
@@ -601,21 +673,36 @@ void MainWindow::layoutChildren(int width, int height) {
     int trap_input_x = content_x;
     int trap_output_x = trap_input_x + trap_input_w + kGap;
     int log_x = trap_output_x + trap_output_w + kGap;
-    int bottom_body_y = bottom_y + kLabelHeight;
-    int bottom_body_h = std::max(1, bottom_h - kLabelHeight);
+    int bottom_body_y = bottom_page_y + kLabelHeight;
+    int bottom_body_h = std::max(1, bottom_page_h - kLabelHeight);
 
-    trap_input_label_->resize(trap_input_x, bottom_y, std::max(1, trap_input_w - 108), kLabelHeight);
-    trap_remaining_label_->resize(trap_input_x + std::max(1, trap_input_w - 108), bottom_y,
+    trap_input_label_->resize(trap_input_x, bottom_page_y, std::max(1, trap_input_w - 108), kLabelHeight);
+    trap_remaining_label_->resize(trap_input_x + std::max(1, trap_input_w - 108), bottom_page_y,
                                   std::min(108, trap_input_w), kLabelHeight);
     trap_input_editor_->resize(trap_input_x, bottom_body_y, trap_input_w, bottom_body_h);
 
-    trap_output_label_->resize(trap_output_x, bottom_y, std::max(1, trap_output_w - 72), kLabelHeight);
+    trap_output_label_->resize(trap_output_x, bottom_page_y, std::max(1, trap_output_w - 72), kLabelHeight);
     clear_trap_output_button_->resize(trap_output_x + std::max(0, trap_output_w - 64),
-                                      bottom_y + 2, std::min(64, trap_output_w), kLabelHeight - 4);
+                                      bottom_page_y + 2, std::min(64, trap_output_w), kLabelHeight - 4);
     trap_output_display_->resize(trap_output_x, bottom_body_y, trap_output_w, bottom_body_h);
 
-    log_label_->resize(log_x, bottom_y, log_w, kLabelHeight);
+    log_label_->resize(log_x, bottom_page_y, log_w, kLabelHeight);
     log_display_->resize(log_x, bottom_body_y, log_w, bottom_body_h);
+
+    int settings_x = content_x + kGap;
+    int settings_y = bottom_page_y + 12;
+    int settings_w = std::max(1, content_w - 2 * kGap);
+    int rate_label_w = std::min(150, std::max(120, settings_w / 5));
+    int rate_input_w = 104;
+    int rate_unit_w = 120;
+    run_rate_label_->resize(settings_x, settings_y, rate_label_w, kButtonHeight);
+    run_rate_input_->resize(settings_x + rate_label_w + kGap, settings_y,
+                            rate_input_w, kButtonHeight);
+    run_rate_unit_label_->resize(settings_x + rate_label_w + rate_input_w + 2 * kGap,
+                                 settings_y, rate_unit_w, kButtonHeight);
+    int slider_y = settings_y + kButtonHeight + 14;
+    run_rate_slider_->resize(settings_x, slider_y, settings_w,
+                             std::max(1, bottom_page_y + bottom_page_h - slider_y - 8));
 
     status_bar_->resize(0, height - kStatusHeight, width, kStatusHeight);
 }
@@ -671,6 +758,26 @@ void MainWindow::onJumpMemoryToPc(Fl_Widget*, void* data) {
 void MainWindow::onAutoMemoryScrollChanged(Fl_Widget* widget, void* data) {
     auto* check = static_cast<Fl_Check_Button*>(widget);
     static_cast<MainWindow*>(data)->setAutoMemoryScroll(check->value() != 0);
+}
+
+void MainWindow::onRunRateSliderChanged(Fl_Widget* widget, void* data) {
+    auto* slider = static_cast<Fl_Value_Slider*>(widget);
+    static_cast<MainWindow*>(data)->setRunRateLimit(static_cast<int>(std::lround(slider->value())),
+                                                    false);
+}
+
+void MainWindow::onRunRateInputChanged(Fl_Widget* widget, void* data) {
+    int value = 0;
+    auto* input = static_cast<Fl_Input*>(widget);
+    auto* self = static_cast<MainWindow*>(data);
+    if (!parseRunRateText(input->value(), value)) {
+        self->updateRunRateControls();
+        self->setStatus("Invalid run rate limit");
+        self->appendLog("Invalid run rate limit; use 1-50000 instructions/s");
+        fl_alert("Run rate limit must be an integer from 1 to 50000.");
+        return;
+    }
+    self->setRunRateLimit(value, true);
 }
 
 void MainWindow::onAddBreakpoint(Fl_Widget*, void* data) {
@@ -948,8 +1055,8 @@ void MainWindow::runProgram() {
     Fl::remove_timeout(onRunTimer, this);
     Fl::add_timeout(0.0, onRunTimer, this);
     refreshSimulatorViews();
-    appendLog("Run started");
-    setStatus("Running");
+    appendLog("Run started at " + std::to_string(run_rate_limit_) + " instructions/s");
+    setStatus("Running at " + std::to_string(run_rate_limit_) + " instructions/s");
 }
 
 void MainWindow::pauseProgram() {
@@ -987,7 +1094,8 @@ void MainWindow::runTimerTick() {
 
     std::string stop_message;
     bool should_continue = true;
-    for (int i = 0; i < kRunStepsPerTick; i++) {
+    int steps_this_tick = runStepsPerTick();
+    for (int i = 0; i < steps_this_tick; i++) {
         lc3::RunStepResult result = simulator_.stepForRun();
         if (!result.ok) {
             stop_message = "Run failed: " + result.message;
@@ -1013,7 +1121,7 @@ void MainWindow::runTimerTick() {
     }
 
     if (simulator_.isRunning()) {
-        Fl::repeat_timeout(kRunTickSeconds, onRunTimer, this);
+        Fl::repeat_timeout(runTickSeconds(), onRunTimer, this);
     } else {
         run_timer_active_ = false;
         setStatus("Paused");
@@ -1103,6 +1211,41 @@ void MainWindow::setAutoMemoryScroll(bool enabled) {
     } else {
         setStatus("Auto PC memory scroll disabled");
     }
+}
+
+void MainWindow::setRunRateLimit(int instructions_per_second, bool log_change) {
+    run_rate_limit_ = std::clamp(instructions_per_second, kMinRunRateLimit, kMaxRunRateLimit);
+    updateRunRateControls();
+
+    std::string message = "Run rate limit: " + std::to_string(run_rate_limit_) +
+                          " instructions/s";
+    if (log_change) {
+        appendLog(message);
+    }
+    setStatus(message);
+}
+
+void MainWindow::updateRunRateControls() {
+    if (run_rate_input_) {
+        std::string text = std::to_string(run_rate_limit_);
+        run_rate_input_->value(text.c_str());
+    }
+    if (run_rate_slider_) {
+        run_rate_slider_->value(run_rate_limit_);
+    }
+    if (run_rate_unit_label_) {
+        run_rate_unit_label_->copy_label("instructions/s");
+    }
+}
+
+int MainWindow::runStepsPerTick() const {
+    double desired_steps = static_cast<double>(run_rate_limit_) * kRunTimerBaseSeconds;
+    return std::max(1, static_cast<int>(std::lround(desired_steps)));
+}
+
+double MainWindow::runTickSeconds() const {
+    return std::max(0.001, static_cast<double>(runStepsPerTick()) /
+                               static_cast<double>(std::max(1, run_rate_limit_)));
 }
 
 void MainWindow::addBreakpoint() {

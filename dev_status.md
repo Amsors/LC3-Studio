@@ -197,3 +197,12 @@ build\x64\Release\lc3_studio.exe --self-test
 - `RegisterView` 暴露计数值，GUI 的 Registers 表在 `CC` 后新增只读 `STEPS` 行，运行到 HALT 或单步执行 HALT 时状态栏/日志会显示最终步数。
 - `--self-test` 新增计数器检查，覆盖加载清零、单步递增、Reset 清零、断点暂停后继续单步以及 TRAP echo 运行到 HALT 的计数。
 - Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。
+
+## 2026-05-04 新增：GUI 设置页与执行速率限制
+
+- 底部区域改为 `I/O` 与 `Settings` 页签，原有 TRAP 输入/输出和 Log 保留在 `I/O` 页。
+- `Settings` 页新增 `Run rate limit` 数值输入框和滑块，范围为 1 到 50000 instructions/s，默认 5000 instructions/s，保持原有运行速度。
+- Run 定时器现在按当前速率限制动态计算每个 tick 执行的指令数和下一次 tick 间隔；运行中调整设置会在下一次 tick 生效。
+- 状态栏和日志会显示 Run 启动时使用的 instructions/s；输入非法速率会回退到当前有效值并提示错误。
+- Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。
+- 当前环境运行 `xvfb-run -a ./build/bin/lc3_studio --gui-close-test` 仍无法打开虚拟显示，未完成 GUI 关闭路径复测。
