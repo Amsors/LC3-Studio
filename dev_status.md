@@ -206,3 +206,12 @@ build\x64\Release\lc3_studio.exe --self-test
 - 状态栏和日志会显示 Run 启动时使用的 instructions/s；输入非法速率会回退到当前有效值并提示错误。
 - Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。
 - 当前环境运行 `xvfb-run -a ./build/bin/lc3_studio --gui-close-test` 仍无法打开虚拟显示，未完成 GUI 关闭路径复测。
+
+## 2026-05-04 新增：命令行汇编与运行入口
+
+- `lc3_studio -a xxx.asm` 现在会读取指定 LC-3 汇编源文件，调用现有 `AssemblerService` 汇编，并将每行 16 位 `0/1` 机器码写入同路径同名的 `xxx.bin`。
+- `lc3_studio -r xxx.bin` 现在会读取 16 位 `0/1` 文本机器码，加载到 `SimulatorService`，运行到 `HALT` 后在控制台输出 R0-R7、PC、IR、CC、HALTED 和 STEPS。
+- 命令行运行入口增加 1000000 步保护，超过后停止并报告可能的死循环，避免演示时误运行无 HALT 程序导致进程长期不返回。
+- 保留无参数启动 GUI、`--self-test` 和 `--gui-close-test` 行为；新增 `-h`/`--help` 输出命令用法。
+- Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。
+- 使用 `/tmp/lc3_cli_sum.asm` 验证 `-a` 生成 `/tmp/lc3_cli_sum.bin` 成功；随后 `-r /tmp/lc3_cli_sum.bin` 运行到 HALT，输出 R0=`x000F`、HALTED=`true`、STEPS=`19`。
