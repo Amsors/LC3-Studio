@@ -8,7 +8,7 @@
 
 RegisterTable::RegisterTable(int x, int y, int width, int height)
     : Fl_Table_Row(x, y, width, height) {
-    rows(13);
+    rows(14);
     cols(2);
     col_header(1);
     col_header_height(24);
@@ -34,7 +34,7 @@ void RegisterTable::fitColumns(int width) {
 }
 
 bool RegisterTable::editableRow(int row) const {
-    return (row >= 0 && row <= 10) || row == 12;
+    return (row >= 0 && row <= 10) || row == 13;
 }
 
 bool RegisterTable::cellBounds(int row, int col, int& x, int& y, int& width, int& height) {
@@ -100,7 +100,7 @@ std::string RegisterTable::registerName(int row) {
     if (row >= 0 && row < 8) {
         return "R" + std::to_string(row);
     }
-    static const std::array<const char*, 5> names = { "PC", "IR", "CC", "RUNNING", "HALTED" };
+    static const std::array<const char*, 6> names = { "PC", "IR", "CC", "STEPS", "RUNNING", "HALTED" };
     int index = row - 8;
     return index >= 0 && index < static_cast<int>(names.size()) ? names[static_cast<std::size_t>(index)] : "";
 }
@@ -113,8 +113,9 @@ std::string RegisterTable::registerValue(int row) const {
         case 8: return lc3::formatHexWord(registers_.pc);
         case 9: return lc3::formatHexWord(registers_.ir);
         case 10: return registers_.cc;
-        case 11: return registers_.running ? "true" : "false";
-        case 12: return registers_.halted ? "true" : "false";
+        case 11: return std::to_string(registers_.executed_instructions);
+        case 12: return registers_.running ? "true" : "false";
+        case 13: return registers_.halted ? "true" : "false";
         default: return "";
     }
 }

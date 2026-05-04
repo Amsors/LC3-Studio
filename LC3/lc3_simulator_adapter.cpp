@@ -116,7 +116,12 @@ RunStepResult SimulatorService::stepForRun() {
         bool can_continue = impl_->machine.StepOnce();
         if (!can_continue) {
             impl_->machine.SetRunning(false);
-            return { true, true, true, "Machine halted" };
+            auto snapshot = impl_->machine.GetSnapshot();
+            return { true,
+                     true,
+                     true,
+                     "Machine halted; steps=" +
+                         std::to_string(snapshot.executed_instructions) };
         }
         return { true, true, false, "Step executed" };
     } catch (const std::exception& e) {
@@ -172,6 +177,7 @@ RegisterView SimulatorService::registers() const {
     view.running = snapshot.running;
     view.loaded_start = snapshot.loaded_start;
     view.loaded_words = snapshot.loaded_words;
+    view.executed_instructions = snapshot.executed_instructions;
     return view;
 }
 

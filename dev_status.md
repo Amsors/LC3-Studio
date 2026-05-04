@@ -1,6 +1,6 @@
 # LC-3 GUI 开发状态简报
 
-更新时间：2026-05-03
+更新时间：2026-05-04
 
 ## 总体结论
 
@@ -189,3 +189,11 @@ build\x64\Release\lc3_studio.exe --self-test
 - `print_digit` 子程序已显式保存和恢复 R7，避免 `OUT`/TRAP 覆盖返回地址。
 - Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过，内嵌示例数量确认变为 4。
 - 额外用临时验证程序设置 R1 并运行示例，已覆盖 n=0、1、2、10、20、50、93、94；输出分别匹配 16 位十六进制期望值。
+
+## 2026-05-04 新增：执行指令数计数器
+
+- `StateMachine` 新增 `executed_instructions` 计数，成功执行完一条 LC-3 指令后递增，执行 `HALT` 的 TRAP 指令本身也计入。
+- 加载机器码、重置程序或清空状态机会将计数器清零；遇到断点暂停但尚未执行该地址指令时不会递增。
+- `RegisterView` 暴露计数值，GUI 的 Registers 表在 `CC` 后新增只读 `STEPS` 行，运行到 HALT 或单步执行 HALT 时状态栏/日志会显示最终步数。
+- `--self-test` 新增计数器检查，覆盖加载清零、单步递增、Reset 清零、断点暂停后继续单步以及 TRAP echo 运行到 HALT 的计数。
+- Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。

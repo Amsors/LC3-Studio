@@ -261,6 +261,7 @@ public:
         bool halted = false;
         int loaded_start = DEFAULT_PC;
         int loaded_words = 0;
+        unsigned long long executed_instructions = 0;
     };
 
 private:
@@ -273,6 +274,7 @@ private:
     CC_type CC;
     int loaded_start;
     int loaded_words;
+    unsigned long long executed_instructions;
 
     std::function<int()> read_char_fn;
     std::function<void(unsigned char)> write_char_fn;
@@ -285,6 +287,7 @@ public:
           CC(ZERO),
           loaded_start(DEFAULT_PC),
           loaded_words(0),
+          executed_instructions(0),
           read_char_fn(DefaultReadChar),
           write_char_fn(DefaultWriteChar) {
         Utilities::WriteMem(PC, DEFAULT_PC);
@@ -347,6 +350,7 @@ public:
         halted = false;
         loaded_start = DEFAULT_PC;
         loaded_words = 0;
+        executed_instructions = 0;
     }
 
     MemCell ReadSingleMem(int location) const {
@@ -433,6 +437,7 @@ public:
         s.halted = halted;
         s.loaded_start = loaded_start;
         s.loaded_words = loaded_words;
+        s.executed_instructions = executed_instructions;
         return s;
     }
 
@@ -586,6 +591,8 @@ private:
             default:
                 throw RuntimeError("Invalid opcode: 0x" + Utilities::IntToHex(opcode, 1));
         }
+
+        executed_instructions++;
 
         if (Config::TRACE) {
             std::cout << "IR=" << Utilities::MemToHexString(IR)

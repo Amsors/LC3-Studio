@@ -1042,8 +1042,9 @@ void MainWindow::stepOnce() {
     }
 
     if (registers.halted) {
-        appendLog("Step: machine halted at " + lc3::formatHexWord(registers.pc));
-        setStatus("Machine halted");
+        appendLog("Step: machine halted at " + lc3::formatHexWord(registers.pc) +
+                  "; steps=" + std::to_string(registers.executed_instructions));
+        setStatus("Machine halted; steps=" + std::to_string(registers.executed_instructions));
     } else {
         setStatus("Step executed; PC=" + lc3::formatHexWord(registers.pc));
     }
@@ -1241,7 +1242,7 @@ void MainWindow::beginRegisterEdit(int row) {
         return;
     }
     if (!register_table_->editableRow(row)) {
-        setStatus(row == 11 ? "Use Run/Pause to change RUNNING" : "This register row is not editable");
+        setStatus(row == 12 ? "Use Run/Pause to change RUNNING" : "This register row is not editable");
         return;
     }
 
@@ -1353,7 +1354,7 @@ bool MainWindow::applyRegisterEdit(int row, const std::string& text) {
         result = simulator_.setIR(value);
     } else if (row == 10) {
         result = simulator_.setConditionCode(text);
-    } else if (row == 12) {
+    } else if (row == 13) {
         bool value = false;
         if (!ui::parseBoolText(text, value)) {
             setStatus("Invalid HALTED value");

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -33,6 +34,7 @@ struct RegisterView {
     bool running = false;
     int loaded_start = 0x3000;
     int loaded_words = 0;
+    std::uint64_t executed_instructions = 0;
 };
 
 struct MemoryRow {

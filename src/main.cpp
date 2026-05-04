@@ -89,6 +89,10 @@ int runSelfTest() {
         std::cerr << "Load failed: " << loaded.message << "\n";
         return 1;
     }
+    if (simulator.registers().executed_instructions != 0) {
+        std::cerr << "Instruction counter self test failed: expected 0 after load\n";
+        return 1;
+    }
 
     lc3::OperationResult stepped = simulator.stepOnce();
     if (!stepped.ok) {
@@ -97,11 +101,28 @@ int runSelfTest() {
     }
 
     lc3::RegisterView registers = simulator.registers();
+    if (registers.executed_instructions != 1) {
+        std::cerr << "Instruction counter self test failed: expected 1 after step, got "
+                  << registers.executed_instructions << "\n";
+        return 1;
+    }
     std::cout << "Self test OK: "
               << "words=" << assembled.words.size()
               << " PC=" << lc3::formatHexWord(registers.pc)
               << " R0=" << lc3::formatHexWord(registers.r[0])
-              << " CC=" << registers.cc << "\n";
+              << " CC=" << registers.cc
+              << " STEPS=" << registers.executed_instructions << "\n";
+
+    lc3::OperationResult reset_counter = simulator.resetProgram();
+    registers = simulator.registers();
+    if (!reset_counter.ok || registers.executed_instructions != 0 || registers.pc != 0x3000) {
+        std::cerr << "Instruction counter reset self test failed: PC="
+                  << lc3::formatHexWord(registers.pc)
+                  << " steps=" << registers.executed_instructions << "\n";
+        return 1;
+    }
+
+    std::cout << "Instruction counter reset self test OK\n";
 
     lc3::OperationResult edit_register = simulator.setRegisterValue(0, 0x8001);
     lc3::OperationResult edit_pc = simulator.setPC(0x3002);
@@ -161,9 +182,11 @@ int runSelfTest() {
     }
     lc3::OperationResult step_over_breakpoint = breakpoint_simulator.stepOnce();
     breakpoint_registers = breakpoint_simulator.registers();
-    if (!step_over_breakpoint.ok || breakpoint_registers.pc != 0x3002) {
+    if (!step_over_breakpoint.ok || breakpoint_registers.pc != 0x3002 ||
+        breakpoint_registers.executed_instructions != 2) {
         std::cerr << "Breakpoint step-over failed: PC="
-                  << lc3::formatHexWord(breakpoint_registers.pc) << "\n";
+                  << lc3::formatHexWord(breakpoint_registers.pc)
+                  << " steps=" << breakpoint_registers.executed_instructions << "\n";
         return 1;
     }
 
@@ -198,13 +221,17 @@ int runSelfTest() {
         }
     }
 
-    if (!trap_simulator.isHalted() || trap_simulator.trapOutputBuffer() != "A") {
+    lc3::RegisterView trap_registers = trap_simulator.registers();
+    if (!trap_simulator.isHalted() || trap_simulator.trapOutputBuffer() != "A" ||
+        trap_registers.executed_instructions != 3) {
         std::cerr << "TRAP self test failed: output=\"" << trap_simulator.trapOutputBuffer()
-                  << "\" halted=" << (trap_simulator.isHalted() ? "true" : "false") << "\n";
+                  << "\" halted=" << (trap_simulator.isHalted() ? "true" : "false")
+                  << " steps=" << trap_registers.executed_instructions << "\n";
         return 1;
     }
 
-    std::cout << "TRAP self test OK: output=\"" << trap_simulator.trapOutputBuffer() << "\"\n";
+    std::cout << "TRAP self test OK: output=\"" << trap_simulator.trapOutputBuffer()
+              << "\" steps=" << trap_registers.executed_instructions << "\n";
     return 0;
 }
 
