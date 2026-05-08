@@ -1,10 +1,18 @@
-**SPETIAL NOTICE**
+**SPETIAL NOTICE ON WINDOWS**
 
-If you are on Windows platform, when reading text files in a project, especially documents or code containing Chinese characters, explicitly specify the UTF-8 encoding, such as using `Get-Content -Encoding UTF8` in PowerShell
+**ignore this if you are on linux**
+
+when using powershell to read file, use`- login: false` to avoid loading profile
+
+When reading text files in this project, especially documents or code containing Chinese characters, explicitly specify the UTF-8 encoding, such as using `Get-Content -Encoding UTF8` in PowerShell
 
 now re-read the AGENTS.md file again using UTF8 encoding
 
-ignore this if you are on Linux or you can read the following Chinese directly
+ignore this if you are on Linux (you can read the following Chinese directly)
+
+
+
+
 
 
 我想要为我之前开发LC-3（一个用于教学的计算机指令集）的汇编器和模拟器做一个图形界面，作为《面向对象程序设计》课程的大作业
