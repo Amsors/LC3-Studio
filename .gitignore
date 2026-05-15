@@ -22,3 +22,7 @@ build/
 cmake-build-debug/
 
 /report/
+/bin/
+/obj/
+/*.depend
+/*.layout
