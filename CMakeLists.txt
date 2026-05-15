@@ -39,11 +39,17 @@ add_custom_command(
 
 set(LC3_STUDIO_SOURCE_FILES
     src/main.cpp
-    src/main_window.cpp
-    src/ui/asm_highlighter.cpp
-    src/ui/file_utils.cpp
-    src/ui/memory_table.cpp
-    src/ui/register_table.cpp
+    src/app/command_line.cpp
+    src/app/self_test.cpp
+    src/gui/main_window.cpp
+    src/gui/main_window_callbacks.cpp
+    src/gui/main_window_commands.cpp
+    src/gui/main_window_layout.cpp
+    src/gui/main_window_refresh.cpp
+    src/gui/io/file_utils.cpp
+    src/gui/widgets/asm_highlighter.cpp
+    src/gui/widgets/memory_table.cpp
+    src/gui/widgets/register_table.cpp
     LC3/lc3_assembler_adapter.cpp
     LC3/lc3_simulator_adapter.cpp
 )
@@ -54,13 +60,16 @@ set(LC3_STUDIO_SOURCES
 )
 
 set(LC3_STUDIO_HEADERS
-    src/embedded_examples.h
-    src/main_window.h
-    src/ui/asm_highlighter.h
-    src/ui/cell_bounds.h
-    src/ui/file_utils.h
-    src/ui/memory_table.h
-    src/ui/register_table.h
+    src/app/command_line.h
+    src/app/self_test.h
+    src/examples/embedded_examples.h
+    src/gui/main_window.h
+    src/gui/main_window_internal.h
+    src/gui/io/file_utils.h
+    src/gui/widgets/asm_highlighter.h
+    src/gui/widgets/cell_bounds.h
+    src/gui/widgets/memory_table.h
+    src/gui/widgets/register_table.h
     LC3/lc3_gui_adapter.h
 )
 

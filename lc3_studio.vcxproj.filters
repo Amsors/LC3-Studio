@@ -5,14 +5,35 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat</Extensions>
     </Filter>
-    <Filter Include="Source Files\UI">
+    <Filter Include="Source Files\App">
+      <UniqueIdentifier>{E26D7A1F-31D6-4C1C-B3D5-D5E0F52D4F28}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\GUI">
+      <UniqueIdentifier>{7E95FA86-0EB2-43AA-9E6D-46C778B9F015}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\GUI\IO">
+      <UniqueIdentifier>{0F2DA766-BA61-4671-BB39-757383353E91}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\GUI\Widgets">
       <UniqueIdentifier>{C470E2F8-2813-44ED-A9BA-9278B4E7B88E}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="Header Files\UI">
+    <Filter Include="Header Files\App">
+      <UniqueIdentifier>{08945D6B-58B6-46EC-96F4-D38B0F2F7F68}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Examples">
+      <UniqueIdentifier>{DDB978E6-0EF6-437A-A212-D00C6D6EB9C6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\GUI">
+      <UniqueIdentifier>{E25E8DA6-4C3A-4753-AD42-3AD9B8924823}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\GUI\IO">
+      <UniqueIdentifier>{31B145B7-47E1-46C2-9865-ED3D8C02365C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\GUI\Widgets">
       <UniqueIdentifier>{E66EC36F-4BBA-4589-A7BF-FBA0AB5B0CFD}</UniqueIdentifier>
     </Filter>
     <Filter Include="LC3">
@@ -33,20 +54,38 @@
     <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\main_window.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="src\app\command_line.cpp">
+      <Filter>Source Files\App</Filter>
     </ClCompile>
-    <ClCompile Include="src\ui\asm_highlighter.cpp">
-      <Filter>Source Files\UI</Filter>
+    <ClCompile Include="src\app\self_test.cpp">
+      <Filter>Source Files\App</Filter>
     </ClCompile>
-    <ClCompile Include="src\ui\file_utils.cpp">
-      <Filter>Source Files\UI</Filter>
+    <ClCompile Include="src\gui\main_window.cpp">
+      <Filter>Source Files\GUI</Filter>
     </ClCompile>
-    <ClCompile Include="src\ui\memory_table.cpp">
-      <Filter>Source Files\UI</Filter>
+    <ClCompile Include="src\gui\main_window_callbacks.cpp">
+      <Filter>Source Files\GUI</Filter>
     </ClCompile>
-    <ClCompile Include="src\ui\register_table.cpp">
-      <Filter>Source Files\UI</Filter>
+    <ClCompile Include="src\gui\main_window_commands.cpp">
+      <Filter>Source Files\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gui\main_window_layout.cpp">
+      <Filter>Source Files\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gui\main_window_refresh.cpp">
+      <Filter>Source Files\GUI</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gui\io\file_utils.cpp">
+      <Filter>Source Files\GUI\IO</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gui\widgets\asm_highlighter.cpp">
+      <Filter>Source Files\GUI\Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gui\widgets\memory_table.cpp">
+      <Filter>Source Files\GUI\Widgets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gui\widgets\register_table.cpp">
+      <Filter>Source Files\GUI\Widgets</Filter>
     </ClCompile>
     <ClCompile Include="$(IntDir)generated\embedded_examples.cpp">
       <Filter>Generated</Filter>
@@ -59,26 +98,35 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\main_window.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\app\command_line.h">
+      <Filter>Header Files\App</Filter>
     </ClInclude>
-    <ClInclude Include="src\embedded_examples.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="src\app\self_test.h">
+      <Filter>Header Files\App</Filter>
     </ClInclude>
-    <ClInclude Include="src\ui\asm_highlighter.h">
-      <Filter>Header Files\UI</Filter>
+    <ClInclude Include="src\examples\embedded_examples.h">
+      <Filter>Header Files\Examples</Filter>
     </ClInclude>
-    <ClInclude Include="src\ui\cell_bounds.h">
-      <Filter>Header Files\UI</Filter>
+    <ClInclude Include="src\gui\main_window.h">
+      <Filter>Header Files\GUI</Filter>
     </ClInclude>
-    <ClInclude Include="src\ui\file_utils.h">
-      <Filter>Header Files\UI</Filter>
+    <ClInclude Include="src\gui\main_window_internal.h">
+      <Filter>Header Files\GUI</Filter>
     </ClInclude>
-    <ClInclude Include="src\ui\memory_table.h">
-      <Filter>Header Files\UI</Filter>
+    <ClInclude Include="src\gui\io\file_utils.h">
+      <Filter>Header Files\GUI\IO</Filter>
     </ClInclude>
-    <ClInclude Include="src\ui\register_table.h">
-      <Filter>Header Files\UI</Filter>
+    <ClInclude Include="src\gui\widgets\asm_highlighter.h">
+      <Filter>Header Files\GUI\Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\widgets\cell_bounds.h">
+      <Filter>Header Files\GUI\Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\widgets\memory_table.h">
+      <Filter>Header Files\GUI\Widgets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\gui\widgets\register_table.h">
+      <Filter>Header Files\GUI\Widgets</Filter>
     </ClInclude>
     <ClInclude Include="LC3\lc3_gui_adapter.h">
       <Filter>LC3</Filter>

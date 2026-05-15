@@ -116,7 +116,10 @@
 
   <ItemGroup>
     <ClCompile Include="src\*.cpp" />
-    <ClCompile Include="src\ui\*.cpp" />
+    <ClCompile Include="src\app\*.cpp" />
+    <ClCompile Include="src\gui\*.cpp" />
+    <ClCompile Include="src\gui\io\*.cpp" />
+    <ClCompile Include="src\gui\widgets\*.cpp" />
     <ClCompile Include="$(IntDir)generated\embedded_examples.cpp" />
     <ClCompile Include="LC3\lc3_assembler_adapter.cpp" />
     <ClCompile Include="LC3\lc3_simulator_adapter.cpp" />
@@ -124,7 +127,11 @@
 
   <ItemGroup>
     <ClInclude Include="src\*.h" />
-    <ClInclude Include="src\ui\*.h" />
+    <ClInclude Include="src\app\*.h" />
+    <ClInclude Include="src\examples\*.h" />
+    <ClInclude Include="src\gui\*.h" />
+    <ClInclude Include="src\gui\io\*.h" />
+    <ClInclude Include="src\gui\widgets\*.h" />
     <ClInclude Include="LC3\lc3_gui_adapter.h" />
   </ItemGroup>
 

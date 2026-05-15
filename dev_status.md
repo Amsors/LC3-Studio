@@ -236,3 +236,13 @@ build\x64\Release\lc3_studio.exe --self-test
 - Linux/CLion 构建入口 `CMakeLists.txt` 的 `CMAKE_CXX_STANDARD` 已由 17 升级为 20，并继续保持 `CMAKE_CXX_STANDARD_REQUIRED ON` 和 `CMAKE_CXX_EXTENSIONS OFF`。
 - `src/ui/file_utils.cpp` 将 UTF-8 路径构造改为 C++20 `char8_t` 路径入口，避免 `std::filesystem::u8path` 在 C++20 下产生弃用警告；不支持 `char8_t` 的工具链仍保留旧入口兜底。
 - Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过；`build/compile_commands.json` 中确认使用 `-std=c++20`。
+
+## 2026-05-15 重构：项目源码目录按职责细分
+
+- 将原 `src/ui/*` 拆分为 `src/gui/widgets/*` 和 `src/gui/io/*`，表格控件、高亮器、文件工具分别归入更明确的 GUI 子目录。
+- 将 `src/main_window.*` 移动到 `src/gui/`，并把 `MainWindow` 实现拆成 `main_window_layout.cpp`、`main_window_callbacks.cpp`、`main_window_commands.cpp`、`main_window_refresh.cpp` 和保留构造/析构的 `main_window.cpp`。
+- 新增 `src/gui/main_window_internal.h`，集中保存 `MainWindow` 各实现文件共享的布局常量、运行速率常量和 FLTK 小控件子类。
+- 将 `src/main.cpp` 精简为程序入口，命令行 `-a/-r/--help/--gui-close-test` 逻辑移入 `src/app/command_line.*`，内置自检逻辑移入 `src/app/self_test.*`。
+- 将内嵌示例访问头文件移动到 `src/examples/embedded_examples.h`，并同步更新 CMake 与 PowerShell 示例生成脚本的生成 include 路径。
+- 同步更新 `CMakeLists.txt`、`lc3_studio.vcxproj` 和 `lc3_studio.vcxproj.filters`，使 Linux/CLion 与 Visual Studio 2022 都使用新的源码结构。
+- Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。
