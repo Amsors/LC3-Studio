@@ -6,6 +6,13 @@
 
 当前项目已经从 `dev_spec.md` 的阶段 0 推进到接近阶段 8。GUI、LC-3 核心适配、汇编/加载、单步、运行/暂停、地址断点、TRAP 输入输出、文件打开保存和示例程序均已有实现，已经具备课堂演示的主体功能。
 
+## 2026-05-15 新增：命令行运行支持 TRAP 输入与输出打印
+
+- `lc3_studio -r xxx.bin` 新增可选参数 `--input "abc123"`，运行前会把文本写入模拟器 TRAP input buffer，供 `GETC` / `IN` 等读取。
+- `-r` 运行结束后除继续打印 R0-R7、PC、IR、CC、HALTED、STEPS 外，还会打印 `OUTPUT_BUFFER_BEGIN` / `OUTPUT_BUFFER_END` 包裹的 TRAP output buffer 内容。
+- `--input` 只在 `-r` 命令中解析；缺少 bin 路径、重复路径、未知选项或 `--input` 缺少值时会输出命令用法并返回失败。
+- 命令用法已更新为 `lc3_studio -r xxx.bin [--input text]`。
+
 ## 2026-05-15 新增：ASM Source 断点红点标记同步
 
 - ASM Source 编辑器行号栏左侧新增小红点显示：只要某个源码行对应的机器字地址设置了断点，该源码行就会显示红点。
