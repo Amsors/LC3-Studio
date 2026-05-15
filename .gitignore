@@ -27,7 +27,7 @@ cmake-build-debug/
 /*.depend
 /*.layout
 
-.AGENTS.md
-.CLAUDE.md
+AGENTS.md
+CLAUDE.md
 dev_spec.md
 dev_status.md
