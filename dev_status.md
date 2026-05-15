@@ -1,10 +1,18 @@
 # LC-3 GUI 开发状态简报
 
-更新时间：2026-05-08
+更新时间：2026-05-15
 
 ## 总体结论
 
 当前项目已经从 `dev_spec.md` 的阶段 0 推进到接近阶段 8。GUI、LC-3 核心适配、汇编/加载、单步、运行/暂停、地址断点、TRAP 输入输出、文件打开保存和示例程序均已有实现，已经具备课堂演示的主体功能。
+
+## 2026-05-15 调整：运行速率上限宏与对数滑块
+
+- 将 Settings 中运行速率限制的最大值集中为 `LC3_STUDIO_MAX_RUN_STEPS_PER_SECOND` 宏定义，当前值为 `50000`，后续修改每秒最大执行步数只需调整该宏。
+- `kMaxRunRateLimit`、输入校验、错误提示和运行速率 clamp 均改为引用该宏，避免多个位置硬编码最大值。
+- Settings 页的 Run rate limit 滑块改为对数尺度：滑块位置使用 0.0 到 1.0，内部通过 `log`/`exp` 映射到真实 instructions/s，使低速区间调节更细，高速区间仍可覆盖到最大值。
+- 数值输入框仍保持真实 instructions/s，可继续精确输入 1 到 `LC3_STUDIO_MAX_RUN_STEPS_PER_SECOND` 范围内的整数。
+- Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。
 
 ## 2026-05-08 修复：Release 启动隐藏控制台窗口
 

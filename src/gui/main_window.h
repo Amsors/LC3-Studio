@@ -18,7 +18,7 @@ class Fl_Tabs;
 class Fl_Text_Buffer;
 class Fl_Text_Display;
 class Fl_Text_Editor;
-class Fl_Value_Slider;
+class Fl_Slider;
 class Fl_Widget;
 class MemoryTable;
 class RegisterTable;
@@ -163,7 +163,7 @@ private:
     Fl_Group* settings_tab_ = nullptr;
     Fl_Box* run_rate_label_ = nullptr;
     Fl_Input* run_rate_input_ = nullptr;
-    Fl_Value_Slider* run_rate_slider_ = nullptr;
+    Fl_Slider* run_rate_slider_ = nullptr;
     Fl_Box* run_rate_unit_label_ = nullptr;
     Fl_Box* state_modified_label_ = nullptr;
     Fl_Input* cell_editor_ = nullptr;

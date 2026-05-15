@@ -21,7 +21,7 @@
 #include <FL/Fl_Text_Buffer.H>
 #include <FL/Fl_Text_Display.H>
 #include <FL/Fl_Text_Editor.H>
-#include <FL/Fl_Value_Slider.H>
+#include <FL/Fl_Slider.H>
 #include <FL/fl_ask.H>
 #include <FL/fl_draw.H>
 
@@ -49,7 +49,9 @@ constexpr int kMemoryRowsBeforePc = 8;
 constexpr int kMemoryRowsAfterPc = 32;
 constexpr int kDefaultRunRateLimit = 5000;
 constexpr int kMinRunRateLimit = 1;
-constexpr int kMaxRunRateLimit = 50000;
+constexpr int kMaxRunRateLimit = 1000000;
+constexpr double kRunRateSliderMin = 0.0;
+constexpr double kRunRateSliderMax = 1.0;
 constexpr double kRunTimerBaseSeconds = 0.02;
 
 class EnterCallbackInput : public Fl_Input {
@@ -291,6 +293,27 @@ inline bool parseRunRateText(const char* text, int& value) {
 
     value = static_cast<int>(parsed);
     return true;
+}
+
+inline double runRateToSliderValue(int instructions_per_second) {
+    int clamped_rate = std::clamp(instructions_per_second, kMinRunRateLimit, kMaxRunRateLimit);
+    double min_log = std::log(static_cast<double>(kMinRunRateLimit));
+    double max_log = std::log(static_cast<double>(kMaxRunRateLimit));
+    if (max_log <= min_log) {
+        return kRunRateSliderMin;
+    }
+
+    double rate_log = std::log(static_cast<double>(clamped_rate));
+    double normalized = (rate_log - min_log) / (max_log - min_log);
+    return std::clamp(normalized, kRunRateSliderMin, kRunRateSliderMax);
+}
+
+inline int sliderValueToRunRate(double slider_value) {
+    double normalized = std::clamp(slider_value, kRunRateSliderMin, kRunRateSliderMax);
+    double min_log = std::log(static_cast<double>(kMinRunRateLimit));
+    double max_log = std::log(static_cast<double>(kMaxRunRateLimit));
+    double rate = std::exp(min_log + normalized * (max_log - min_log));
+    return std::clamp(static_cast<int>(std::lround(rate)), kMinRunRateLimit, kMaxRunRateLimit);
 }
 
 

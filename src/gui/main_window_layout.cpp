@@ -187,11 +187,10 @@ void MainWindow::buildUi() {
     run_rate_input_->when(FL_WHEN_ENTER_KEY_ALWAYS);
     run_rate_input_->callback(onRunRateInputChanged, this);
 
-    run_rate_slider_ = new Fl_Value_Slider(0, 0, 1, 1);
+    run_rate_slider_ = new Fl_Slider(0, 0, 1, 1);
     run_rate_slider_->type(FL_HORIZONTAL);
-    run_rate_slider_->bounds(kMinRunRateLimit, kMaxRunRateLimit);
-    run_rate_slider_->step(1);
-    run_rate_slider_->precision(0);
+    run_rate_slider_->bounds(kRunRateSliderMin, kRunRateSliderMax);
+    run_rate_slider_->step(0.001);
     run_rate_slider_->when(FL_WHEN_CHANGED);
     run_rate_slider_->callback(onRunRateSliderChanged, this);
 
@@ -370,4 +369,3 @@ void MainWindow::layoutChildren(int width, int height) {
 
     status_bar_->resize(0, height - kStatusHeight, width, kStatusHeight);
 }
-

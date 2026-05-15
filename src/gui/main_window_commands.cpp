@@ -365,7 +365,7 @@ void MainWindow::updateRunRateControls() {
         run_rate_input_->value(text.c_str());
     }
     if (run_rate_slider_) {
-        run_rate_slider_->value(run_rate_limit_);
+        run_rate_slider_->value(runRateToSliderValue(run_rate_limit_));
     }
     if (run_rate_unit_label_) {
         run_rate_unit_label_->copy_label("instructions/s");
@@ -711,4 +711,3 @@ void MainWindow::markStateModified(const std::string& detail) {
     appendLog("Machine state manually modified: " + detail);
     setStatus("Machine state manually modified");
 }
-
