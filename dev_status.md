@@ -246,3 +246,9 @@ build\x64\Release\lc3_studio.exe --self-test
 - 将内嵌示例访问头文件移动到 `src/examples/embedded_examples.h`，并同步更新 CMake 与 PowerShell 示例生成脚本的生成 include 路径。
 - 同步更新 `CMakeLists.txt`、`lc3_studio.vcxproj` 和 `lc3_studio.vcxproj.filters`，使 Linux/CLion 与 Visual Studio 2022 都使用新的源码结构。
 - Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。
+
+## 2026-05-15 修复：同步 Code::Blocks 展示工程文件
+
+- 更新 `presentation.cbp`，移除旧的 `src/main_window.*`、`src/ui/*` 和 `src/embedded_examples.h` 引用。
+- 将 Code::Blocks 工程文件同步到新的源码结构，加入 `src/app/*`、`src/gui/*`、`src/gui/io/*`、`src/gui/widgets/*` 和 `src/examples/embedded_examples.h`。
+- 已验证 `presentation.cbp` 中列出的文件路径均存在，并成功运行 `tools/embed_examples.ps1` 生成 `build/codeblocks/generated/embedded_examples.cpp`。
