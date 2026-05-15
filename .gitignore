@@ -26,3 +26,8 @@ cmake-build-debug/
 /obj/
 /*.depend
 /*.layout
+
+.AGENTS.md
+.CLAUDE.md
+dev_spec.md
+dev_status.md
