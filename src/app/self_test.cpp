@@ -80,11 +80,16 @@ int runSelfTest() {
 
     lc3::AssembleResult metadata_assembled = assembler.assembleSource(sourceMetadataSelfTestSource());
     if (!metadata_assembled.ok || metadata_assembled.words.size() != metadata_assembled.word_sources.size() ||
+        metadata_assembled.words.size() != metadata_assembled.word_source_lines.size() ||
         metadata_assembled.word_sources.size() != 4 ||
         metadata_assembled.word_sources[0].find(".fill") == std::string::npos ||
         metadata_assembled.word_sources[1].find(".stringz") == std::string::npos ||
         metadata_assembled.word_sources[2].find(".stringz") == std::string::npos ||
-        metadata_assembled.word_sources[3].find("halt") == std::string::npos) {
+        metadata_assembled.word_sources[3].find("halt") == std::string::npos ||
+        metadata_assembled.word_source_lines[0] != 2 ||
+        metadata_assembled.word_source_lines[1] != 3 ||
+        metadata_assembled.word_source_lines[2] != 3 ||
+        metadata_assembled.word_source_lines[3] != 4) {
         std::cerr << "Source metadata self test failed\n";
         return 1;
     }

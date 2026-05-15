@@ -109,6 +109,10 @@ void MainWindow::onCellEditConfirmed(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->commitCellEdit();
 }
 
+void MainWindow::onSourceLineDoubleClicked(int source_line, void* data) {
+    static_cast<MainWindow*>(data)->toggleBreakpointAtSourceLine(source_line);
+}
+
 void MainWindow::onRegisterTableEvent(Fl_Widget* widget, void* data) {
     auto* self = static_cast<MainWindow*>(data);
     auto* table = static_cast<RegisterTable*>(widget);

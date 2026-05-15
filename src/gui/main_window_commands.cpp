@@ -32,6 +32,7 @@ void MainWindow::openFile() {
         machine_buffer_->text("");
         latest_machine_code_.clear();
         latest_word_sources_.clear();
+        latest_word_source_lines_.clear();
         program_loaded_ = false;
         state_modified_ = false;
         state_modified_label_->copy_label("");
@@ -100,6 +101,8 @@ void MainWindow::assembleSource() {
         machine_buffer_->text("");
         latest_machine_code_.clear();
         latest_word_sources_.clear();
+        latest_word_source_lines_.clear();
+        refreshEditorBreakpointMarkers();
         focusEditorLine(result.error_line);
         appendLog("Assembly failed: " + result.error_message);
         setStatus(result.error_line > 0
@@ -110,6 +113,8 @@ void MainWindow::assembleSource() {
 
     latest_machine_code_ = result.machine_code;
     latest_word_sources_ = result.word_sources;
+    latest_word_source_lines_ = result.word_source_lines;
+    refreshEditorBreakpointMarkers();
     setMachineOutput(formatMachineOutput(result.words));
     appendLog("Assembled successfully: " + std::to_string(result.words.size()) + " word(s)");
     setStatus("Assembly succeeded");
@@ -123,6 +128,7 @@ void MainWindow::assembleAndLoad() {
         machine_buffer_->text("");
         latest_machine_code_.clear();
         latest_word_sources_.clear();
+        latest_word_source_lines_.clear();
         program_loaded_ = false;
         simulator_.clearMachine();
         state_modified_ = false;
@@ -140,6 +146,7 @@ void MainWindow::assembleAndLoad() {
     setMachineOutput(formatMachineOutput(assembled.words));
     latest_machine_code_ = assembled.machine_code;
     latest_word_sources_ = assembled.word_sources;
+    latest_word_source_lines_ = assembled.word_source_lines;
 
     lc3::OperationResult loaded = simulator_.loadMachineCode(assembled.machine_code);
     if (!loaded.ok) {
@@ -433,6 +440,49 @@ void MainWindow::toggleBreakpointAtAddress(int address) {
               lc3::formatHexWord(address));
 }
 
+void MainWindow::toggleBreakpointAtSourceLine(int source_line) {
+    int address = 0;
+    if (!addressForSourceLine(source_line, address)) {
+        if (latest_word_source_lines_.empty()) {
+            setStatus("Assemble source before setting source breakpoints");
+            appendLog("Source breakpoint ignored: assemble source first");
+        } else {
+            setStatus("No machine word for source line " + std::to_string(source_line));
+            appendLog("Source breakpoint ignored: line " + std::to_string(source_line) +
+                      " does not emit a machine word");
+        }
+        return;
+    }
+
+    bool enabled = !simulator_.hasBreakpoint(address);
+    simulator_.setBreakpoint(address, enabled);
+    breakpoint_input_->value(lc3::formatHexWord(address).c_str());
+    memory_center_ = address;
+    memory_jump_input_->value(lc3::formatHexWord(address).c_str());
+    refreshMemoryView(true);
+
+    std::string action = enabled ? "Breakpoint set" : "Breakpoint removed";
+    std::string message = action + " at " + lc3::formatHexWord(address) +
+                          " from source line " + std::to_string(source_line);
+    appendLog(message);
+    setStatus(message);
+}
+
+bool MainWindow::addressForSourceLine(int source_line, int& address) const {
+    if (source_line <= 0 || latest_word_source_lines_.empty()) {
+        return false;
+    }
+
+    int loaded_start = program_loaded_ ? simulator_.registers().loaded_start : 0x3000;
+    for (std::size_t i = 0; i < latest_word_source_lines_.size(); i++) {
+        if (latest_word_source_lines_[i] == source_line) {
+            address = (loaded_start + static_cast<int>(i)) & 0xFFFF;
+            return true;
+        }
+    }
+    return false;
+}
+
 void MainWindow::clearTrapOutput() {
     simulator_.clearTrapOutputBuffer();
     refreshTrapViews();
@@ -486,6 +536,7 @@ void MainWindow::openExampleProgram(const embedded_examples::AssemblyExample& ex
     machine_buffer_->text("");
     latest_machine_code_.clear();
     latest_word_sources_.clear();
+    latest_word_source_lines_.clear();
     program_loaded_ = false;
     state_modified_ = false;
     state_modified_label_->copy_label("");

@@ -85,6 +85,7 @@ void MainWindow::invalidateLoadedProgram(const std::string& message) {
     program_loaded_ = false;
     latest_machine_code_.clear();
     latest_word_sources_.clear();
+    latest_word_source_lines_.clear();
     machine_buffer_->text("");
     simulator_.clearMachine();
     state_modified_ = false;
@@ -122,6 +123,7 @@ void MainWindow::refreshMemoryView(bool reset_scroll) {
         memory_table_->scrollAddressNearUpperMiddle(memory_center_);
         reset_memory_scroll_on_next_refresh_ = false;
     }
+    refreshEditorBreakpointMarkers();
 }
 
 void MainWindow::autoScrollMemoryToPc(const lc3::RegisterView& registers) {
@@ -187,6 +189,31 @@ void MainWindow::applyMemorySources(std::vector<lc3::MemoryRow>& rows) const {
             row.source = latest_word_sources_[static_cast<std::size_t>(offset)];
         }
     }
+}
+
+void MainWindow::refreshEditorBreakpointMarkers() {
+    auto* source_editor = static_cast<AsmSourceEditor*>(editor_);
+    if (!source_editor || latest_word_source_lines_.empty()) {
+        if (source_editor) {
+            source_editor->breakpointSourceLines({});
+        }
+        return;
+    }
+
+    int loaded_start = program_loaded_ ? simulator_.registers().loaded_start : 0x3000;
+    std::vector<int> source_lines;
+    source_lines.reserve(latest_word_source_lines_.size());
+    for (std::size_t i = 0; i < latest_word_source_lines_.size(); i++) {
+        int source_line = latest_word_source_lines_[i];
+        if (source_line <= 0) {
+            continue;
+        }
+        int address = (loaded_start + static_cast<int>(i)) & 0xFFFF;
+        if (simulator_.hasBreakpoint(address)) {
+            source_lines.push_back(source_line);
+        }
+    }
+    source_editor->breakpointSourceLines(std::move(source_lines));
 }
 
 std::string MainWindow::defaultSource() {

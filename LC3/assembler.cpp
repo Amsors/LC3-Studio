@@ -242,6 +242,7 @@ public:
     struct WordInfo {
         std::string bits;
         std::string source;
+        int source_line = 0;
     };
 
 private:
@@ -634,7 +635,7 @@ private:
             if (parsed.kind == ParsedLine::End) break;
             if (!parsed.encoded.empty()) {
                 for (const std::string& encoded : parsed.encoded) {
-                    words.push_back({ encoded, line.source_text });
+                    words.push_back({ encoded, line.source_text, line.source_line });
                 }
             }
             current_line += parsed.word_count;

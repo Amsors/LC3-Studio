@@ -31,6 +31,7 @@
 #include <cstdlib>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace gui::main_window_detail {
@@ -49,7 +50,7 @@ constexpr int kMemoryRowsBeforePc = 8;
 constexpr int kMemoryRowsAfterPc = 32;
 constexpr int kDefaultRunRateLimit = 5000;
 constexpr int kMinRunRateLimit = 1;
-constexpr int kMaxRunRateLimit = 1000000;
+constexpr int kMaxRunRateLimit = 10000000;
 constexpr double kRunRateSliderMin = 0.0;
 constexpr double kRunRateSliderMax = 1.0;
 constexpr double kRunTimerBaseSeconds = 0.02;
@@ -89,7 +90,30 @@ class AsmSourceEditor : public WheelIsolatedTextEditor {
 public:
     using WheelIsolatedTextEditor::WheelIsolatedTextEditor;
 
+    using SourceLineCallback = void (*)(int source_line, void* data);
+
+    void sourceLineDoubleClickCallback(SourceLineCallback callback, void* data) {
+        source_line_callback_ = callback;
+        source_line_callback_data_ = data;
+    }
+
+    void breakpointSourceLines(std::vector<int> source_lines) {
+        std::sort(source_lines.begin(), source_lines.end());
+        source_lines.erase(std::unique(source_lines.begin(), source_lines.end()), source_lines.end());
+        breakpoint_source_lines_ = std::move(source_lines);
+        redraw();
+    }
+
     int handle(int event) override {
+        if (event == FL_PUSH && Fl::event_clicks() > 0 && isInLineNumberArea()) {
+            int source_line = sourceLineAtEventY();
+            if (source_line > 0 && source_line_callback_) {
+                source_line_callback_(source_line, source_line_callback_data_);
+                Fl::event_clicks(0);
+                return 1;
+            }
+        }
+
         if (event == FL_KEYDOWN) {
             int key = Fl::event_key();
             int state = Fl::event_state();
@@ -104,8 +128,86 @@ public:
         return WheelIsolatedTextEditor::handle(event);
     }
 
+protected:
+    void draw() override {
+        WheelIsolatedTextEditor::draw();
+        drawBreakpointDots();
+    }
+
 private:
     static constexpr int kIndentSpaces = 4;
+    SourceLineCallback source_line_callback_ = nullptr;
+    void* source_line_callback_data_ = nullptr;
+    std::vector<int> breakpoint_source_lines_;
+
+    bool isInLineNumberArea() const {
+        int gutter_width = linenumber_width();
+        return gutter_width > 0 &&
+               Fl::event_x() >= x() && Fl::event_x() < x() + gutter_width &&
+               Fl::event_y() >= y() && Fl::event_y() < y() + h();
+    }
+
+    int sourceLineAtEventY() const {
+        Fl_Text_Buffer* text_buffer = buffer();
+        if (!text_buffer) {
+            return 0;
+        }
+
+        int text_x = x() + linenumber_width() + 2;
+        int pos = xy_to_position(text_x, Fl::event_y(), CHARACTER_POS);
+        pos = std::clamp(pos, 0, text_buffer->length());
+        int line_start_pos = line_start(pos);
+        return count_lines(0, line_start_pos, true) + 1;
+    }
+
+    int positionForSourceLine(int source_line) const {
+        Fl_Text_Buffer* text_buffer = buffer();
+        if (!text_buffer || source_line <= 1) {
+            return 0;
+        }
+
+        int line = 1;
+        int position = 0;
+        const int length = text_buffer->length();
+        while (position < length && line < source_line) {
+            if (text_buffer->byte_at(position) == '\n') {
+                line++;
+            }
+            position++;
+        }
+        return position;
+    }
+
+    void drawBreakpointDots() const {
+        if (breakpoint_source_lines_.empty() || !buffer() || linenumber_width() <= 0) {
+            return;
+        }
+
+        const int gutter_width = linenumber_width();
+        const int dot_radius = 4;
+        const int dot_center_x = x() + std::min(12, std::max(dot_radius + 2, gutter_width / 4));
+        const int line_height = std::max(12, static_cast<int>(textsize()) + 4);
+
+        fl_push_clip(x(), y(), gutter_width, h());
+        for (int source_line : breakpoint_source_lines_) {
+            int line_x = 0;
+            int line_y = 0;
+            if (!position_to_xy(positionForSourceLine(source_line), &line_x, &line_y)) {
+                continue;
+            }
+            const int dot_center_y = line_y + line_height / 2;
+            if (dot_center_y + dot_radius < y() || dot_center_y - dot_radius > y() + h()) {
+                continue;
+            }
+            fl_color(fl_rgb_color(210, 35, 35));
+            fl_pie(dot_center_x - dot_radius, dot_center_y - dot_radius,
+                   dot_radius * 2, dot_radius * 2, 0.0, 360.0);
+            fl_color(fl_rgb_color(150, 20, 20));
+            fl_arc(dot_center_x - dot_radius, dot_center_y - dot_radius,
+                   dot_radius * 2, dot_radius * 2, 0.0, 360.0);
+        }
+        fl_pop_clip();
+    }
 
     std::string currentLineIndent(int pos) const {
         Fl_Text_Buffer* text_buffer = buffer();

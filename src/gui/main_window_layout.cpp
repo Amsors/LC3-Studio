@@ -103,9 +103,11 @@ void MainWindow::buildUi() {
     editor_->buffer(editor_buffer_);
     editor_->textfont(FL_COURIER);
     editor_->textsize(14);
-    editor_->linenumber_width(48);
+    editor_->linenumber_width(62);
     editor_->linenumber_align(FL_ALIGN_RIGHT);
     editor_->linenumber_size(12);
+    static_cast<AsmSourceEditor*>(editor_)->sourceLineDoubleClickCallback(onSourceLineDoubleClicked,
+                                                                           this);
     editor_->highlight_data(editor_style_buffer_,
                             ui::kAsmStyleTable,
                             ui::kAsmStyleTableSize,

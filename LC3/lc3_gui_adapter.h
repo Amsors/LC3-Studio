@@ -17,6 +17,7 @@ struct AssembleResult {
     std::string machine_code;
     std::vector<std::string> words;
     std::vector<std::string> word_sources;
+    std::vector<int> word_source_lines;
     std::string error_message;
     int error_line = 0;
 };

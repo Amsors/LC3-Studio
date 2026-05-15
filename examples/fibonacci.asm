@@ -7,11 +7,12 @@
 ; f(15) = 0x262
 ; f(45) = 0x43a53f82
 ; f(99) = 0xde2ab8cecafb7902 (mod 2^64)
+; f(16384) = 0xb8b1bbebccb8723b (mod 2^64)
 ;
 ; input examples:
 ; "3."  -> f(3)
-; "96." -> f(96)
-; "682" -> f(682)
+; "15." -> f(15)
+; "999" -> f(999)
 ; at most three digits are consumed; later characters are left in the input buffer
 
 .orig x3000

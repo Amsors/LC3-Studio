@@ -59,6 +59,7 @@ private:
     static void onRegisterTableEvent(Fl_Widget* widget, void* data);
     static void onMemoryTableEvent(Fl_Widget* widget, void* data);
     static void onCellEditConfirmed(Fl_Widget* widget, void* data);
+    static void onSourceLineDoubleClicked(int source_line, void* data);
     static void onTextModified(int pos, int inserted, int deleted, int restyled,
                                const char* deleted_text, void* data);
     static void onTrapInputModified(int pos, int inserted, int deleted, int restyled,
@@ -91,6 +92,8 @@ private:
     void removeBreakpoint();
     void clearBreakpoints();
     void toggleBreakpointAtAddress(int address);
+    void toggleBreakpointAtSourceLine(int source_line);
+    bool addressForSourceLine(int source_line, int& address) const;
     void clearTrapOutput();
     void runCoreSelfTest();
     void openExampleProgram(const embedded_examples::AssemblyExample& example);
@@ -121,6 +124,7 @@ private:
     void updateControlStates(const lc3::RegisterView& registers);
     void updateTitle();
     void applyMemorySources(std::vector<lc3::MemoryRow>& rows) const;
+    void refreshEditorBreakpointMarkers();
 
     static std::string defaultSource();
     static std::string fileDisplayName(const std::filesystem::path& path);
@@ -187,6 +191,7 @@ private:
     std::string current_example_title_;
     std::string latest_machine_code_;
     std::vector<std::string> latest_word_sources_;
+    std::vector<int> latest_word_source_lines_;
     int memory_center_ = 0x3000;
     bool program_loaded_ = false;
     bool dirty_ = false;

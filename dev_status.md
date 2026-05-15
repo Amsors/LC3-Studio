@@ -6,6 +6,14 @@
 
 当前项目已经从 `dev_spec.md` 的阶段 0 推进到接近阶段 8。GUI、LC-3 核心适配、汇编/加载、单步、运行/暂停、地址断点、TRAP 输入输出、文件打开保存和示例程序均已有实现，已经具备课堂演示的主体功能。
 
+## 2026-05-15 新增：ASM Source 断点红点标记同步
+
+- ASM Source 编辑器行号栏左侧新增小红点显示：只要某个源码行对应的机器字地址设置了断点，该源码行就会显示红点。
+- 红点状态由当前地址断点集合和汇编产生的 `Mem -> Line` 映射反向推导，保持断点仍以 Memory 地址为真实状态。
+- 通过 Memory 表双击 `Flag` 列、断点输入框 Add/Remove、Clear BP、源码行号双击等路径修改断点后，ASM Source 红点都会同步刷新。
+- 如果某个内存地址没有汇编来源行号映射（例如手动修改状态机执行到非汇编产物地址），不会尝试修改 ASM Source 标记。
+- Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。
+
 ## 2026-05-15 调整：运行速率上限宏与对数滑块
 
 - 将 Settings 中运行速率限制的最大值集中为 `LC3_STUDIO_MAX_RUN_STEPS_PER_SECOND` 宏定义，当前值为 `50000`，后续修改每秒最大执行步数只需调整该宏。
@@ -13,6 +21,15 @@
 - Settings 页的 Run rate limit 滑块改为对数尺度：滑块位置使用 0.0 到 1.0，内部通过 `log`/`exp` 映射到真实 instructions/s，使低速区间调节更细，高速区间仍可覆盖到最大值。
 - 数值输入框仍保持真实 instructions/s，可继续精确输入 1 到 `LC3_STUDIO_MAX_RUN_STEPS_PER_SECOND` 范围内的整数。
 - Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。
+
+## 2026-05-15 新增：源码行号栏双击切换断点
+
+- 汇编元数据新增每个输出机器字对应的源码行号，`AssemblerService::assembleSource` 会在 `word_source_lines` 中返回该映射。
+- GUI 保存最新汇编结果的源码行号映射；在 ASM Source 左侧行号区域双击时，会查找该源码行生成的第一个机器字地址，并在对应内存地址切换断点。
+- 对 `.stringz`、`.blkw` 等一行生成多个 word 的语句，双击行号会定位到该行生成的第一个内存 word。
+- 双击无机器字的行（空行、注释、`.orig`、`.end` 或纯标签行）会在状态栏和日志提示该行不能设置源码断点；尚未成功汇编时会提示先汇编。
+- 切换成功后会同步更新断点输入框、Memory 跳转地址，并把 Memory 视图滚动到对应地址。
+- `--self-test` 已扩展检查汇编源码行号元数据；Linux 构建 `cmake --build build --target lc3_studio` 通过，`./build/bin/lc3_studio --self-test` 通过。
 
 ## 2026-05-08 修复：Release 启动隐藏控制台窗口
 
