@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <string>
 
 namespace app {
@@ -22,7 +23,8 @@ void printUsage(std::ostream& out, const char* executable) {
     out << "Usage:\n"
         << "  " << name << "                 Start GUI\n"
         << "  " << name << " -a xxx.asm       Assemble xxx.asm to xxx.bin\n"
-        << "  " << name << " -r xxx.bin       Run machine code and print registers\n"
+        << "  " << name << " -r xxx.bin [--input text]\n"
+        << "                         Run machine code and print registers/output buffer\n"
         << "  " << name << " --self-test      Run built-in self test\n";
 }
 
@@ -40,6 +42,44 @@ void printRegisterDump(const lc3::RegisterView& registers) {
               << "CC=" << registers.cc << "\n"
               << "HALTED=" << (registers.halted ? "true" : "false") << "\n"
               << "STEPS=" << registers.executed_instructions << "\n";
+}
+
+void printTrapOutputBuffer(const std::string& output) {
+    std::cout << "OUTPUT_BUFFER_BEGIN\n"
+              << output
+              << (output.empty() || output.back() == '\n' ? "" : "\n")
+              << "OUTPUT_BUFFER_END\n";
+}
+
+struct RunCommandOptions {
+    const char* bin_path = nullptr;
+    std::string input;
+};
+
+std::optional<RunCommandOptions> parseRunCommandOptions(int argc, char** argv) {
+    RunCommandOptions options;
+    for (int i = 2; i < argc; i++) {
+        std::string arg = argv[i] ? argv[i] : "";
+        if (arg == "--input") {
+            if (i + 1 >= argc) {
+                return std::nullopt;
+            }
+            options.input = argv[++i] ? argv[i] : "";
+            continue;
+        }
+        if (!arg.empty() && arg[0] == '-') {
+            return std::nullopt;
+        }
+        if (options.bin_path) {
+            return std::nullopt;
+        }
+        options.bin_path = argv[i];
+    }
+
+    if (!options.bin_path) {
+        return std::nullopt;
+    }
+    return options;
 }
 
 int runAssembleCommand(const char* asm_path_text) {
@@ -66,12 +106,13 @@ int runAssembleCommand(const char* asm_path_text) {
     }
 }
 
-int runMachineCodeCommand(const char* bin_path_text) {
+int runMachineCodeCommand(const RunCommandOptions& options) {
     try {
-        std::filesystem::path bin_path = ui::utf8Path(bin_path_text);
+        std::filesystem::path bin_path = ui::utf8Path(options.bin_path);
         std::string machine_code = ui::readFile(bin_path);
 
         lc3::SimulatorService simulator;
+        simulator.setTrapInputBuffer(options.input);
         lc3::OperationResult loaded = simulator.loadMachineCode(machine_code);
         if (!loaded.ok) {
             std::cerr << "Load failed: " << loaded.message << "\n";
@@ -108,6 +149,7 @@ int runMachineCodeCommand(const char* bin_path_text) {
         }
 
         printRegisterDump(simulator.registers());
+        printTrapOutputBuffer(simulator.trapOutputBuffer());
         return 0;
     } catch (const std::exception& e) {
         std::cerr << "Run command failed: " << e.what() << "\n";
@@ -150,11 +192,12 @@ int run(int argc, char** argv) {
         return runAssembleCommand(argv[2]);
     }
     if (argc > 1 && std::string(argv[1]) == "-r") {
-        if (argc != 3) {
+        std::optional<RunCommandOptions> options = parseRunCommandOptions(argc, argv);
+        if (!options) {
             printUsage(std::cerr, argv[0]);
             return 1;
         }
-        return runMachineCodeCommand(argv[2]);
+        return runMachineCodeCommand(*options);
     }
     if (argc > 1 && argv[1][0] == '-') {
         printUsage(std::cerr, argv[0]);

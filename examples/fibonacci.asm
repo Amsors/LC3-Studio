@@ -1,5 +1,5 @@
 ; name: Fibonacci 64-bit hex
-; description: computes fibonacci(R1) with 64-bit precision and prints 16 hex digits.
+; description: reads decimal x from the TRAP input buffer, computes fibonacci(x), and prints 16 hex digits.
 
 ; the answer is computed modulo 2^64
 
@@ -7,19 +7,49 @@
 ; f(15) = 0x262
 ; f(45) = 0x43a53f82
 ; f(99) = 0xde2ab8cecafb7902 (mod 2^64)
+; f(16384) = 0xb8b1bbebccb8723b (mod 2^64)
+;
+; input examples:
+; "3."  -> f(3)
+; "15." -> f(15)
+; "999" -> f(999)
+; at most three digits are consumed; later characters are left in the input buffer
 
 .orig x3000
-set
-	and r1, r1, 0
+read_input
+        and r1, r1, #0
 
-	;set R1 to a non-negative n here!
-	add r1 ,r1, 15
-	add r1, r1, 15
-	add r1, r1, 15
-	add r1, r1, 15
-	add r1, r1, 15
-	add r1, r1, 15
-	add r1, r1, 9
+        getc
+        ld r3, neg_period
+        add r3, r0, r3
+        brz begin
+        ld r3, neg_ascii_zero
+        add r6, r0, r3
+        add r1, r1, r6
+
+        getc
+        ld r3, neg_period
+        add r3, r0, r3
+        brz begin
+        ld r3, neg_ascii_zero
+        add r6, r0, r3
+        add r3, r1, r1
+        add r4, r3, r3
+        add r4, r4, r4
+        add r1, r4, r3
+        add r1, r1, r6
+
+        getc
+        ld r3, neg_period
+        add r3, r0, r3
+        brz begin
+        ld r3, neg_ascii_zero
+        add r6, r0, r3
+        add r3, r1, r1
+        add r4, r3, r3
+        add r4, r4, r4
+        add r1, r4, r3
+        add r1, r1, r6
 
 begin
         and r0, r0, #0
@@ -127,6 +157,8 @@ decimal_digit
         ret
 
 word_count       .fill #48
+neg_ascii_zero   .fill #-48
+neg_period       .fill #-46
 ascii_zero       .fill x0030
 ascii_a_minus_10 .fill x0037
 digit_ret        .blkw #1

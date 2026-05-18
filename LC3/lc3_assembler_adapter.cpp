@@ -57,9 +57,11 @@ AssembleResult AssemblerService::assembleSource(const std::string& source) const
         std::ostringstream out;
         result.words.reserve(words.size());
         result.word_sources.reserve(words.size());
+        result.word_source_lines.reserve(words.size());
         for (const Parser::WordInfo& word : words) {
             result.words.push_back(word.bits);
             result.word_sources.push_back(word.source);
+            result.word_source_lines.push_back(word.source_line);
             out << word.bits << '\n';
         }
         result.machine_code = out.str();

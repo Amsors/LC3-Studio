@@ -56,9 +56,8 @@ void MainWindow::onAutoMemoryScrollChanged(Fl_Widget* widget, void* data) {
 }
 
 void MainWindow::onRunRateSliderChanged(Fl_Widget* widget, void* data) {
-    auto* slider = static_cast<Fl_Value_Slider*>(widget);
-    static_cast<MainWindow*>(data)->setRunRateLimit(static_cast<int>(std::lround(slider->value())),
-                                                    false);
+    auto* slider = static_cast<Fl_Slider*>(widget);
+    static_cast<MainWindow*>(data)->setRunRateLimit(sliderValueToRunRate(slider->value()), false);
 }
 
 void MainWindow::onRunRateInputChanged(Fl_Widget* widget, void* data) {
@@ -68,8 +67,9 @@ void MainWindow::onRunRateInputChanged(Fl_Widget* widget, void* data) {
     if (!parseRunRateText(input->value(), value)) {
         self->updateRunRateControls();
         self->setStatus("Invalid run rate limit");
-        self->appendLog("Invalid run rate limit; use 1-50000 instructions/s");
-        fl_alert("Run rate limit must be an integer from 1 to 50000.");
+        self->appendLog("Invalid run rate limit; use 1-" +
+                        std::to_string(kMaxRunRateLimit) + " instructions/s");
+        fl_alert("Run rate limit must be an integer from 1 to %d.", kMaxRunRateLimit);
         return;
     }
     self->setRunRateLimit(value, true);
@@ -107,6 +107,10 @@ void MainWindow::onOpenExample(Fl_Widget* widget, void* data) {
 
 void MainWindow::onCellEditConfirmed(Fl_Widget*, void* data) {
     static_cast<MainWindow*>(data)->commitCellEdit();
+}
+
+void MainWindow::onSourceLineDoubleClicked(int source_line, void* data) {
+    static_cast<MainWindow*>(data)->toggleBreakpointAtSourceLine(source_line);
 }
 
 void MainWindow::onRegisterTableEvent(Fl_Widget* widget, void* data) {
@@ -168,4 +172,3 @@ void MainWindow::onClose(Fl_Widget*, void* data) {
 void MainWindow::onRunTimer(void* data) {
     static_cast<MainWindow*>(data)->runTimerTick();
 }
-

@@ -103,9 +103,11 @@ void MainWindow::buildUi() {
     editor_->buffer(editor_buffer_);
     editor_->textfont(FL_COURIER);
     editor_->textsize(14);
-    editor_->linenumber_width(48);
+    editor_->linenumber_width(62);
     editor_->linenumber_align(FL_ALIGN_RIGHT);
     editor_->linenumber_size(12);
+    static_cast<AsmSourceEditor*>(editor_)->sourceLineDoubleClickCallback(onSourceLineDoubleClicked,
+                                                                           this);
     editor_->highlight_data(editor_style_buffer_,
                             ui::kAsmStyleTable,
                             ui::kAsmStyleTableSize,
@@ -187,11 +189,10 @@ void MainWindow::buildUi() {
     run_rate_input_->when(FL_WHEN_ENTER_KEY_ALWAYS);
     run_rate_input_->callback(onRunRateInputChanged, this);
 
-    run_rate_slider_ = new Fl_Value_Slider(0, 0, 1, 1);
+    run_rate_slider_ = new Fl_Slider(0, 0, 1, 1);
     run_rate_slider_->type(FL_HORIZONTAL);
-    run_rate_slider_->bounds(kMinRunRateLimit, kMaxRunRateLimit);
-    run_rate_slider_->step(1);
-    run_rate_slider_->precision(0);
+    run_rate_slider_->bounds(kRunRateSliderMin, kRunRateSliderMax);
+    run_rate_slider_->step(0.001);
     run_rate_slider_->when(FL_WHEN_CHANGED);
     run_rate_slider_->callback(onRunRateSliderChanged, this);
 
@@ -370,4 +371,3 @@ void MainWindow::layoutChildren(int width, int height) {
 
     status_bar_->resize(0, height - kStatusHeight, width, kStatusHeight);
 }
-
